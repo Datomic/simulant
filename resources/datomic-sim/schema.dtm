@@ -1,6 +1,9 @@
 {:core
  [[{:db.install/_partition :db.part/db,
     :db/id #db/id[:db.part/db],
+    :db/ident :model}
+   {:db.install/_partition :db.part/db,
+    :db/id #db/id[:db.part/db],
     :db/ident :test}
    {:db.install/_partition :db.part/db,
     :db/id #db/id[:db.part/db],
@@ -9,6 +12,32 @@
     :db/id #db/id[:db.part/db],
     :db/ident :process}]]
 
+ :model
+ [[{:db/id #db/id[:db.part/db]
+    :db/ident :model/type
+    :db/valueType :db.type/ref
+    :db/cardinality :db.cardinality/one
+    :db.install/_attribute :db.part/db}
+   {:db/id #db/id[:db.part/db]
+    :db/ident :model/duration
+    :db/valueType :db.type/long
+    :db/doc "Duration covered by model (in msec)"
+    :db/cardinality :db.cardinality/one
+    :db.install/_attribute :db.part/db}]]
+
+ :test
+ [[{:db/id #db/id[:db.part/db]
+    :db/ident :test/type
+    :db/valueType :db.type/ref
+    :db/cardinality :db.cardinality/one
+    :db.install/_attribute :db.part/db}
+   {:db/id #db/id[:db.part/db]
+    :db/ident :test/agents
+    :db/valueType :db.type/ref
+    :db/doc "Agents in this test"
+    :db/cardinality :db.cardinality/many
+    :db.install/_attribute :db.part/db}]]
+ 
  :action
  [[{:db/id #db/id[:db.part/db]
     :db/ident :action/atTime
@@ -26,6 +55,13 @@
  
  :process
  [[{:db/id #db/id[:db.part/db]
+    :db/ident :process/basic}
+   {:db/id #db/id[:db.part/db]
+    :db/ident :process/type
+    :db/valueType :db.type/ref
+    :db/cardinality :db.cardinality/one
+    :db.install/_attribute :db.part/db}
+   {:db/id #db/id[:db.part/db]
     :db/ident :process/ordinal
     :db/valueType :db.type/long
     :db/doc "Ordinal number of process within sim, determines which actions this process is responsible for."
@@ -41,6 +77,13 @@
  
  :sim
  [[{:db/id #db/id[:db.part/db]
+    :db/ident :sim/basic}
+   {:db/id #db/id[:db.part/db]
+    :db/ident :sim/type
+    :db/valueType :db.type/ref
+    :db/cardinality :db.cardinality/one
+    :db.install/_attribute :db.part/db}
+   {:db/id #db/id[:db.part/db]
     :db/ident :sim/processCount
     :db/valueType :db.type/long
     :db/doc "Total number of processes desired for this sim."

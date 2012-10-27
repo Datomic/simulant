@@ -1,19 +1,45 @@
 (ns datomic.sim
-  (:require [datomic.api :refer (q db transact entity)]))
+  (:use datomic.api))
 
 (set! *warn-on-reflection* true)
 
+;; generate model & create-model have no multimethods
+
+(defmulti create-test
+  "Execute a series of transactions agaist conn that create a
+   test based on model. Default implementation calls generate-test
+   to generate the transactions, and then batches and submits
+   them."
+  (fn [conn model] (:model/type model)))
+
+(defmulti generate-test
+  "Generate a series of transactions that constitute a test
+   based on model"
+  (fn [model] (:model/type model)))
+
+(defmulti create-sim
+  "Execute a series of transactions agaist conn that create a
+   sim based on test. Default implementation calls generate-sim
+   to generate the transactions, and then submits them"
+  (fn [conn test] (:test/type test)))
+
+(defmulti generate-sim
+  "Generate a series of transactions that constitute a sim
+   based on test"
+  (fn [test] (:test/type test)))
+
+(defmulti join-sim
+  "Returns a process entity or nil if could not join"
+  (fn [conn sim process-uuid] (:sim/type sim)))
+
+(defmulti process-agentids
+  "Given a process that has joined a sim, return the agent
+   ids that process represents."
+  (fn [process] (:process/type)))
 
 (defmulti perform-action
-  "Perform the action"
+  "Perform an action"
   (fn [action] (:action/type action)))
-
-(defmulti action-seq
-  "Given a test and a process participating in the test, return a time-ordered
-   sequence of actions that process should perform. Default is to round robin
-   agents across all processes, so that each agent's actions are localized
-   to a process."
-  (fn [test process] (:test/type test)))
 
 ;; general utilities ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defn keep-partition
@@ -47,6 +73,21 @@
   
   datomic.Entity
   (e [ent] (:db/id ent)))
+
+(defn transact-batch
+  "Submit txes in batches of size batch-size."
+  [conn txes batch-size]
+  (doseq [batch (partition-all batch-size txes)]
+    @(transact-async conn (mapcat identity batch))
+    :ok))
+
+;; models ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;; tests ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(defmethod create-test :default
+  [conn model]
+  (let [txes (generate-test model)]
+    (transact-batch conn txes 1000)))
 
 ;; sim time ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (def sim-start (atom nil))
@@ -109,34 +150,33 @@
   [coll]
   (apply await (map via-agent-for coll)))
 
-(defn join-sim
-  "Returns process or nil."
-  [conn run process]
-  (let [{:keys [db-after]} @(transact conn [[:run/join (e run) (e process)]])]
+(defmethod join-sim :sim/basic
+  [conn sim process-uuid]
+  (let [{:keys [db-after]} @(transact conn [[:sim/join (e sim) process-uuid]])]
     (-> (q '[:find ?process
              :in $ ?run ?process
              :where [?run :run/processes ?process]]
            db-after (e run) (e process))
-        ssolo boolean)))
+        ssolo)))
 
-(defmethod action-seq
+(defn action-seq
   [test process]
   (let [nprocs (:sim/processCount test)
         ord (:process/ordinal process)
-        agentids (->> (:test/agents test) (sort-by :db/id) (keep-partition ord nprocs) (map :db/id) (into #{}))]
+        agentids (->> (:test/agents test)
+                      (sort-by :db/id)
+                      (keep-partition ord nprocs)
+                      (map :db/id)
+                      (into #{}))]
     (->> (datoms db :avet :action/atTime)
          (map (fn [datom] (entity db (:e datom))))
-         (filter (fn [datom] (contains? agentids (-> action :agent/_actions first)))))))
+         (filter (fn [action] (contains? agentids (-> action :agent/_actions first)))))))
 
 (def puuid (squuid))
 
 (defn process-uuid
   []
-  (return puuid))
-
-(defn create-process
-  [conn]
-  (let []))
+  puuid)
 
 (defn run-sim-process
   [uri simuuid]
