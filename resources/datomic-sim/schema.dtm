@@ -1,0 +1,68 @@
+{:core
+ [[{:db.install/_partition :db.part/db,
+    :db/id #db/id[:db.part/db],
+    :db/ident :test}
+   {:db.install/_partition :db.part/db,
+    :db/id #db/id[:db.part/db],
+    :db/ident :sim}
+   {:db.install/_partition :db.part/db,
+    :db/id #db/id[:db.part/db],
+    :db/ident :process}]]
+
+ :action
+ [[{:db/id #db/id[:db.part/db]
+    :db/ident :action/atTime
+    :db/valueType :db.type/long
+    :db/doc "Time this action should happen, in msec relative to start of the sim."
+    :db/cardinality :db.cardinality/one
+    :db.install/_attribute :db.part/db}
+   {:db/id #db/id[:db.part/db]
+    :db/ident :action/type
+    :db/valueType :db.type/ref
+    :db/doc "Type of the action."
+    :db/index true
+    :db/cardinality :db.cardinality/one
+    :db.install/_attribute :db.part/db}]]
+ 
+ :process
+ [[{:db/id #db/id[:db.part/db]
+    :db/ident :process/ordinal
+    :db/valueType :db.type/long
+    :db/doc "Ordinal number of process within sim, determines which actions this process is responsible for."
+    :db/cardinality :db.cardinality/one
+    :db.install/_attribute :db.part/db}
+   {:db/id #db/id[:db.part/db]
+    :db/ident :process/uuid
+    :db/valueType :db.type/long
+    :db/doc "Unique id for process"
+    :db/unique :db.unique/value
+    :db/cardinality :db.cardinality/one
+    :db.install/_attribute :db.part/db}]]
+ 
+ :sim
+ [[{:db/id #db/id[:db.part/db]
+    :db/ident :sim/processCount
+    :db/valueType :db.type/long
+    :db/doc "Total number of processes desired for this sim."
+    :db/cardinality :db.cardinality/one
+    :db.install/_attribute :db.part/db}
+   {:db/id #db/id[:db.part/db]
+    :db/ident :sim/processes
+    :db/valueType :db.type/ref
+    :db/doc "Processes that have joined this sim."
+    :db/cardinality :db.cardinality/many
+    :db.install/_attribute :db.part/db}
+   {:db/id #db/id [:db.part/db]
+    :db/ident :sim/join
+    :db/doc "Add procid to the sim, if any slots are still available"
+    :db/fn #db/fn
+    {:lang "clojure"
+     :params [db simid procid]
+     :code (let [procs (q '[:find ?procid
+                            :in $ ?simid
+                            :where [?simid :sim/processes ?procid]]
+                          db simid)]
+             (when (and (< (count procs) (:sim/processCount (d/entity db simid)))
+                        (not (some (fn [[e]] (= e procid)) procs)))
+               [[:db/add simid :sim/processes procid]
+                [:db/add procid :process/ordinal (count procs)]]))}}]]}
