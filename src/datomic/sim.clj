@@ -1,5 +1,5 @@
 (ns datomic.sim
-  (:use datomic.api))
+  (:use datomic.api datomic.sim.util))
 
 (set! *warn-on-reflection* true)
 
@@ -9,7 +9,7 @@
   "Execute a series of transactions agaist conn that create a
    test based on model. Default implementation calls generate-test
    to generate the transactions, and then batches and submits
-   them."
+   them. Returns test entity."
   (fn [conn model] (:model/type model)))
 
 (defmulti generate-test
@@ -41,45 +41,6 @@
   "Perform an action"
   (fn [action] (:action/type action)))
 
-;; general utilities ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-(defn keep-partition
-  "Keep 1/group-size items from coll, round robin,
-   offset from zero by ordinal."
-  [ordinal group-size coll]
-  (assert (< -1 ordinal group-size))
-  (keep-indexed
-   (fn [idx item]
-     (when (zero? (mod (- idx ordinal) group-size))
-       item))
-   coll))
-
-(defn solo
-  "Like first, but throws if more than one item"
-  [coll]
-  (assert (not (next coll)))
-  (first coll))
-
-(def ssolo (comp solo solo))
-
-(defprotocol Eid
-  (e [_]))
-
-(extend-protocol Eid
-  java.lang.Long
-  (e [n] n)
-
-  clojure.lang.Keyword
-  (e [k] k)
-  
-  datomic.Entity
-  (e [ent] (:db/id ent)))
-
-(defn transact-batch
-  "Submit txes in batches of size batch-size."
-  [conn txes batch-size]
-  (doseq [batch (partition-all batch-size txes)]
-    @(transact-async conn (mapcat identity batch))
-    :ok))
 
 ;; models ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -150,7 +111,7 @@
   [coll]
   (apply await (map via-agent-for coll)))
 
-(defmethod join-sim :sim/basic
+#_(defmethod join-sim :sim/basic
   [conn sim process-uuid]
   (let [{:keys [db-after]} @(transact conn [[:sim/join (e sim) process-uuid]])]
     (-> (q '[:find ?process

@@ -3,112 +3,98 @@
 
 (def sim-conn (scratch-conn))
 (def sim-schema (-> "datomic-sim/schema.dtm" io/resource slurp read-string))
+(def hello-schema (-> "datomic-sim/hello-world.dtm" io/resource slurp read-string))
 
-(doseq [k [:core :model :test :action :sim :process]]
+(doseq [k [:core :model :test :agent :action :sim :process]]
   (doseq [tx (get sim-schema k)]
     (transact sim-conn tx)))
 
-;; model ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-(def model-schema
-  [{:db/id #db/id[:db.part/db]
-    :db/ident :model.type/helloWorld
-    :db/doc "A degenerate trading system with a single type of trader,
-tracking only balances."}
-   {:db/id #db/id[:db.part/db]
-    :db/ident :helloWorld/traderCount
-    :db/valueType :db.type/long
-    :db/doc "Number of traders"
-    :db/cardinality :db.cardinality/one
-    :db.install/_attribute :db.part/db}
-   {:db/id #db/id[:db.part/db]
-    :db/ident :helloWorld/initialBalance
-    :db/valueType :db.type/long
-    :db/doc "Initial balance for each trader, in arbitrary 'points'."
-    :db/cardinality :db.cardinality/one
-    :db.install/_attribute :db.part/db}
-   {:db/id #db/id[:db.part/db]
-    :db/ident :helloWorld/meanTradeAmount
-    :db/valueType :db.type/long
-    :db/doc "Mean size of trades (geometric distribution)."
-    :db/cardinality :db.cardinality/one
-    :db.install/_attribute :db.part/db}   
-   {:db/id #db/id[:db.part/db]
-    :db/ident :helloWorld/meanTradeFrequency
-    :db/valueType :db.type/long
-    :db/doc "Mean frequency of trades in hours (geometric distribution)"
-    :db/cardinality :db.cardinality/one
-    :db.install/_attribute :db.part/db}])
-
-(transact sim-conn model-schema)
-
-(defn hours->msec [h] (* h 60 60 1000))
+(doseq [k [:model :test]]
+  (doseq [tx (get hello-schema k)]
+    (transact sim-conn tx)))
 
 (def model-id (tempid :model))
 (def model-data
   [{:db/id model-id
     :model/type :model.type/helloWorld
-    :model/duration (hours->msec 8)
-    :helloWorld/traderCount 100
-    :helloWorld/initialBalance 1000
-    :helloWorld/meanTradeAmount 100
-    :helloWorld/meanTradeFrequency 1}])
+    :model/traderCount 100
+    :model/initialBalance 1000
+    :model/meanTradeAmount 100
+    :model/meanTradeFrequency 1}])
 
 (def model
   (-> @(transact sim-conn model-data)
-      (txresult-entity model-id)))
+      (tx-ent model-id)))
 
-(def test-schema
-  [{:db/id #db/id[:db.part/db]
-    :db/ident :helloWorld/trade
-    :db/doc "Action type"}
-   {:db/id #db/id[:db.part/db]
-    :db/ident :transfer/from
-    :db/valueType :db.type/long
-    :db/cardinality :db.cardinality/one
-    :db.install/_attribute :db.part/db}
-   {:db/id #db/id[:db.part/db]
-    :db/ident :transfer/to
-    :db/valueType :db.type/long
-    :db/cardinality :db.cardinality/one
-    :db.install/_attribute :db.part/db}
-   {:db/id #db/id[:db.part/db]
-    :db/ident :transfer/amount
-    :db/valueType :db.type/ref
-    :db/cardinality :db.cardinality/one
-    :db.install/_attribute :db.part/db}])
+(defn create-hello-world-test
+  "Returns test entity"
+  [conn model id duration]
+  (-> @(transact conn [{:db/id id
+                        :test/type :test.type/helloWorld
+                        :test/duration duration
+                        :model/_tests (e model)}])
+      (tx-ent id)))
 
-(transact sim-conn test-schema)
+(def hello-test (create-hello-world-test sim-conn model (tempid :test) (hours->msec 8)))
 
-(defn generate-trade-action-data
+(defn create-hello-world-traders
+  "Returns trader ids sorted"
+  [conn test]
+  (let [model (-> test :model/_tests solo)
+        ids (repeatedly (:model/traderCount model) #(tempid :test))
+        txresult (->> ids
+                      (map (fn [id] {:db/id id
+                                     :agent/type :agent.type/trader
+                                     :test/_agents (e test)}))
+                      (transact conn))]
+    (tx-entids @txresult ids)))
+
+(def traders
+  (create-hello-world-traders sim-conn hello-test))
+
+(defn generate-trade
   "Generate a trade from trader ord, based on the model"
-  [model ord at-time]
-  [[{:db/id (tempid :test)
-     :action/atTime at-time
-     :action/type :helloWorld/trade
-     :transfer/from ord
-     :transfer/to (gen/uniform 0 (:helloWorld/traderCount model))
-     :transfer/amount (long (gen/geometric (/ 1 (:helloWorld/meanTradeAmount model))))}]])
+  [test from-trader traders at-time]
+  (let [model (-> test :model/_tests first)]
+    [[{:db/id (tempid :test)
+       :agent/_actions (e from-trader)
+       :action/atTime at-time
+       :action/type :action.type/trade
+       :transfer/from (e from-trader)
+       :transfer/to (e (gen/rand-nth traders))
+       :transfer/amount (long (gen/geometric (/ 1 (:model/meanTradeAmount model))))}]]))
 
-(generate-trade-action-data model 0 0)
+(generate-trade hello-test (first traders) traders 10)
 
-(defn generate-trader-actions-data
+(defn generate-trader-trades
   "Generate all actions for trader ord, based on model"
-  [model ord]
-  (let [limit (:model/duration model)
-        step #(gen/geometric (/ 1 (hours->msec (:helloWorld/meanTradeFrequency model))))]
+  [test from-trader traders]
+  (let [model (-> test :model/_tests first)
+        limit (:test/duration test)
+        step #(gen/geometric (/ 1 (hours->msec (:model/meanTradeFrequency model))))]
     (->> (reductions + (repeatedly step))
          (take-while (fn [t] (< t limit)))
-         (mapcat #(generate-trade-action-data model ord %)))))
+         (mapcat #(generate-trade test from-trader traders %)))))
 
-(defmethod generate-test-data :model.type/helloWorld
-  [model]
+(generate-trader-trades hello-test (first traders) traders)
+
+(defn generate-all-trades
+  [test traders]
   (mapcat
-   (fn [ord] (generate-trader-actions-data model ord))
-   (range (:helloWorld/traderCount model))))
+   (fn [from-trader] (generate-trader-trades test from-trader traders))
+   traders))
 
-(generate-test-data model)
-(create-test sim-conn model)
+(count (generate-all-trades hello-test traders))
 
-(count-by (db sim-conn) :transfer/from)
+(defmethod sim/create-test :model.type/helloWorld
+  [conn model]
+  (let [test (create-hello-world-test conn model (tempid :test) (hours->msec 8))
+        traders (create-hello-world-traders conn test)]
+    (transact-batch conn (generate-all-trades test traders) 1000)
+    (entity (db conn) (e test))))
+
+(def hello-test (sim/create-test sim-conn model))
+
+(count-by (db sim-conn) :transfer/to)
 
 
