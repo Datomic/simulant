@@ -10,27 +10,27 @@
    test based on model. Default implementation calls generate-test
    to generate the transactions, and then batches and submits
    them. Returns test entity."
-  (fn [conn model] (:model/type model)))
+  (fn [conn model test] (:model/type model)))
 
 (defmulti generate-test
   "Generate a series of transactions that constitute a test
    based on model"
-  (fn [model] (:model/type model)))
+  (fn [model test] (:model/type model)))
 
 (defmulti create-sim
   "Execute a series of transactions agaist conn that create a
    sim based on test. Default implementation calls generate-sim
    to generate the transactions, and then submits them"
-  (fn [conn test] (:test/type test)))
+  (fn [conn test sim] (:test/type test)))
 
 (defmulti generate-sim
   "Generate a series of transactions that constitute a sim
-   based on test"
-  (fn [test] (:test/type test)))
+   based on test, plus a map of sim configuration data."
+  (fn [test sim] (:test/type test)))
 
 (defmulti join-sim
   "Returns a process entity or nil if could not join"
-  (fn [conn sim process-uuid] (:sim/type sim)))
+  (fn [conn sim process] (:sim/type sim)))
 
 (defmulti process-agentids
   "Given a process that has joined a sim, return the agent
@@ -46,9 +46,34 @@
 
 ;; tests ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defmethod create-test :default
-  [conn model]
-  (let [txes (generate-test model)]
+  [conn model test]
+  (let [txes (generate-test model test)]
     (transact-batch conn txes 1000)))
+
+;; sim ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defmethod create-sim :default
+  [conn test sim]
+  (let [tx (generate-sim test sim)]
+    (-> @(transact conn tx)
+        (tx-ent (:db/id sim)))))
+
+(defmethod generate-sim :default
+  [test sim]
+  (require-keys sim :db/id :sim/processCount)
+  [(assoc sim
+     :sim/type :sim.type/basic
+     :test/_sims (e test))])
+
+;; processes join ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+#_(defmethod join-sim :sim/basic
+  [conn sim process]
+  (let [{:keys [db-after]} @(transact conn [[:sim/join (e sim) process-uuid]])]
+    (-> (q '[:find ?process
+             :in $ ?run ?process
+             :where [?run :run/processes ?process]]
+           db-after (e run) (e process))
+        ssolo)))
 
 ;; sim time ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (def sim-start (atom nil))
@@ -110,15 +135,6 @@
   "Given a collection of objects, calls await on the agent for each one"
   [coll]
   (apply await (map via-agent-for coll)))
-
-#_(defmethod join-sim :sim/basic
-  [conn sim process-uuid]
-  (let [{:keys [db-after]} @(transact conn [[:sim/join (e sim) process-uuid]])]
-    (-> (q '[:find ?process
-             :in $ ?run ?process
-             :where [?run :run/processes ?process]]
-           db-after (e run) (e process))
-        ssolo)))
 
 (defn action-seq
   [test process]

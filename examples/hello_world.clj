@@ -28,14 +28,16 @@
 
 (defn create-hello-world-test
   "Returns test entity"
-  [conn model id duration]
-  (-> @(transact conn [{:db/id id
-                        :test/type :test.type/helloWorld
-                        :test/duration duration
-                        :model/_tests (e model)}])
-      (tx-ent id)))
+  [conn model test]
+  (require-keys test :db/id :test/duration)
+  (-> @(transact conn [(assoc test
+                         :test/type :test.type/helloWorld
+                         :model/_tests (e model))])
+      (tx-ent (:db/id test))))
 
-(def hello-test (create-hello-world-test sim-conn model (tempid :test) (hours->msec 8)))
+(def hello-test (create-hello-world-test sim-conn model
+                                         {:db/id (tempid :test)
+                                          :test/duration (hours->msec 8)}))
 
 (defn create-hello-world-traders
   "Returns trader ids sorted"
@@ -87,14 +89,18 @@
 (count (generate-all-trades hello-test traders))
 
 (defmethod sim/create-test :model.type/helloWorld
-  [conn model]
-  (let [test (create-hello-world-test conn model (tempid :test) (hours->msec 8))
+  [conn model test]
+  (let [test (create-hello-world-test conn model test)
         traders (create-hello-world-traders conn test)]
     (transact-batch conn (generate-all-trades test traders) 1000)
     (entity (db conn) (e test))))
 
-(def hello-test (sim/create-test sim-conn model))
+(def hello-test (sim/create-test sim-conn model {:db/id (tempid :test)
+                                                 :test/duration (hours->msec 8)}))
 
-(count-by (db sim-conn) :transfer/to)
+(def hello-sim (sim/create-sim sim-conn hello-test {:db/id (tempid :sim)
+                                                    :sim/processCount 2}))
+
+(-> hello-sim :test/_sims first :test/agents first :agent/actions first touch)
 
 

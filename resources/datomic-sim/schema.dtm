@@ -103,12 +103,18 @@
  
  :sim
  [[{:db/id #db/id[:db.part/db]
-    :db/ident :sim/basic}
+    :db/ident :sim.type/basic}
    {:db/id #db/id[:db.part/db]
     :db/ident :sim/type
     :db/valueType :db.type/ref
     :db/cardinality :db.cardinality/one
     :db.install/_attribute :db.part/db}
+   {:db/id #db/id[:db.part/db]
+    :db/ident :sim/datomicURI
+    :db/valueType :db.type/string
+    :db/doc "Convenience attribute for sims that use a single Datomic connection."
+    :db/cardinality :db.cardinality/one
+    :db.install/_attribute :db.part/db}   
    {:db/id #db/id[:db.part/db]
     :db/ident :sim/processCount
     :db/valueType :db.type/long
@@ -123,15 +129,17 @@
     :db.install/_attribute :db.part/db}
    {:db/id #db/id [:db.part/db]
     :db/ident :sim/join
-    :db/doc "Add procid to the sim, if any slots are still available"
+    :db/doc "Add proc to the sim, if any slots are still available"
     :db/fn #db/fn
     {:lang "clojure"
-     :params [db simid procid]
-     :code (let [procs (q '[:find ?procid
+     :params [db simid proc]
+     :code (let [procid (:db/id proc)
+                 procs (q '[:find ?procid
                             :in $ ?simid
                             :where [?simid :sim/processes ?procid]]
                           db simid)]
              (when (and (< (count procs) (:sim/processCount (d/entity db simid)))
                         (not (some (fn [[e]] (= e procid)) procs)))
                [[:db/add simid :sim/processes procid]
+                proc
                 [:db/add procid :process/ordinal (count procs)]]))}}]]}

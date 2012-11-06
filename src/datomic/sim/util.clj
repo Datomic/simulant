@@ -1,5 +1,22 @@
 (ns datomic.sim.util
-  (:use datomic.api))
+  (:use datomic.api)
+  (:require [clojure.set :as set]))
+
+(defn require-keys
+  [m & ks]
+  (let [missing (set/difference (apply hash-set ks)
+                                (apply hash-set (keys m)))]
+    (when (seq missing)
+      (throw (ex-info "Missing required keys" {:map m :missing missing})))))
+
+(defn getx
+  "Like two-argument get, but throws an exception if the key is
+   not found."
+  [m k] 
+  (let [e (get m k ::sentinel)]
+    (if-not (= e ::sentinel)
+      e 
+      (throw (ex-info "Missing required key" {:map m :key k})))))
 
 (defn keep-partition
   "Keep 1/group-size items from coll, round robin,
