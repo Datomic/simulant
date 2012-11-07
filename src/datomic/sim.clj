@@ -41,6 +41,17 @@
   "Perform an action"
   (fn [action sim] (:action/type action)))
 
+(defmulti start-clock
+  "Start the sim clock, returns the updated clock"
+  (fn [conn clock] (:clock/type clock)))
+
+(defmulti sleep-until
+  "Sleep until sim clock reaches clock-elapsed-time"
+  (fn [clock elapsed] (:clock/type clock)))
+
+(defmulti clock-elapsed-time
+  "Return the elapsed simulation time, in msec"
+  (fn [clock] (:clock/type clock)))
 
 ;; models ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -93,28 +104,25 @@
          (map (fn [datom] (entity db (:e datom))))
          (filter (fn [action] (contains? agent-ids (-> action :agent/_actions solo :db/id)))))))
 
-;; sim time ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-(def sim-start (atom nil))
+;; sim time (fixed clock) ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(defmethod start-clock :clock.type/fixed
+  [conn clock]
+  (let [t (System/currentTimeMillis)
+        {:keys [db-after]} @(transact conn [[:db.fn/cas (e clock) :clock/realStart nil t]])]
+    (entity db-after (e clock))))
 
-(defn reset
-  "Zero the sim clock. You must call this before running
-   a simulation!"
-  []
-  (reset! sim-start (System/currentTimeMillis)))
-
-(defn now
-  "Returns the current simulation time.  This is the naive version using the
-  system time in ms."
-  []
-  (- (System/currentTimeMillis) @sim-start))
+(defmethod clock-elapsed-time :clock.type/fixed
+  [clock]
+  (let [start (getx clock :clock/realStart)
+        mult (getx clock :clock/multiplier)
+        real-elapsed (- (System/currentTimeMillis) start)]
+    (long (* real-elapsed mult))))
 
 (defn sleep-until
-  "Checks if the target time is less-than the actual time and sleeps the remaining ms
-  if it is."
-  [twhen]
-  (let [tnow (now)]
+  [clock twhen]
+  (let [tnow (clock-elapsed-time clock)]
     (when (< tnow twhen)
-      (Thread/sleep (- twhen tnow)))))
+      (Thread/sleep (long (* (getx clock :clock/multiplier) (- twhen tnow)))))))
 
 ;; sim runner ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defn handle-action-error
@@ -152,10 +160,12 @@
   [coll]
   (apply await (map via-agent-for coll)))
 
-;; entry point runner
-(defn run-sim-process
-  [uri simuuid]
-  (let [procid (squuid)
-        conn (connect uri)
-        id (tempid :process)]
-    (transact conn )))
+(defn -main
+  [sim-uri sim-id]
+  (let [sim-conn (connect sim-uri)
+        sim (entity (db sim-conn) (safe-read-string sim-id))]
+    (if-let [process (join-sim sim-conn sim {:db/id (tempid :sim)})]
+      (println "Joined sim " sim-id " as process " (:db/id process))
+      (do
+        (println "Unable to join sim " sim-id)
+        (System/exit -1)))))

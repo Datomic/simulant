@@ -5,7 +5,7 @@
 (def sim-schema (-> "datomic-sim/schema.dtm" io/resource slurp read-string))
 (def hello-schema (-> "datomic-sim/hello-world.dtm" io/resource slurp read-string))
 
-(doseq [k [:core :model :test :agent :action :sim :process]]
+(doseq [k [:core :model :test :agent :action :clock :sim :process]]
   (doseq [tx (get sim-schema k)]
     (transact sim-conn tx)))
 

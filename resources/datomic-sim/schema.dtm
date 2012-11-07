@@ -12,6 +12,27 @@
     :db/id #db/id[:db.part/db],
     :db/ident :process}]]
 
+ :clock
+ [[{:db/id #db/id[:db.part/db]
+    :db/ident :clock/type
+    :db/valueType :db.type/ref
+    :db/cardinality :db.cardinality/one
+    :db.install/_attribute :db.part/db}
+   {:db/id #db/id[:db.part/db]
+    :db/ident :clock.type/fixed}
+   {:db/id #db/id[:db.part/db]
+    :db/ident :clock/realStart
+    :db/valueType :db.type/long
+    :db/doc "Real time at which sim clock started"
+    :db/cardinality :db.cardinality/one
+    :db.install/_attribute :db.part/db}   
+   {:db/id #db/id[:db.part/db]
+    :db/ident :clock/multiplier
+    :db/valueType :db.type/double
+    :db/doc "Multiply real time by a fixed multiplier"
+    :db/cardinality :db.cardinality/one
+    :db.install/_attribute :db.part/db}]]
+ 
  :model
  [[{:db/id #db/id[:db.part/db]
     :db/ident :model/type
@@ -120,6 +141,12 @@
     :db/ident :sim/processCount
     :db/valueType :db.type/long
     :db/doc "Total number of processes desired for this sim."
+    :db/cardinality :db.cardinality/one
+    :db.install/_attribute :db.part/db}
+   {:db/id #db/id[:db.part/db]
+    :db/ident :sim/clock
+    :db/valueType :db.type/ref
+    :db/doc "The clock used by this sim"
     :db/cardinality :db.cardinality/one
     :db.install/_attribute :db.part/db}
    {:db/id #db/id[:db.part/db]

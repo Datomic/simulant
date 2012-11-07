@@ -105,3 +105,9 @@
 
 (defn hours->msec [h] (* h 60 60 1000))
 
+(defn safe-read-string 
+  [str]
+  (binding [*read-eval* false]
+    (when (pos? (count str))
+      (read-string str))))
+
