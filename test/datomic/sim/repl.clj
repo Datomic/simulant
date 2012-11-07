@@ -15,10 +15,11 @@
   (set! *warn-on-reflection* true)
   (set! *print-length* 20)
   (use '[datomic.api :as d])
-  (use 'datomic.sim.util)
+  (use 'datomic.sim.util 'datomic.sim.hello-world)
   (require
    '[clojure.string :as str]
    '[clojure.java.io :as io]
+   '[clojure.set :as set]
    '[clojure.test.generative.generators :as gen]
    '[clojure.pprint :as pprint]
    '[datomic.sim :as sim]))

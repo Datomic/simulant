@@ -32,10 +32,10 @@
   "Returns a process entity or nil if could not join"
   (fn [conn sim process] (:sim/type sim)))
 
-(defmulti process-agentids
-  "Given a process that has joined a sim, return the agent
-   ids that process represents."
-  (fn [process] (:process/type)))
+(defmulti process-agents
+  "Given a process that has joined a sim, return that process's
+   agents"
+  (fn [process] (:process/type process)))
 
 (defmulti perform-action
   "Perform an action"
@@ -51,7 +51,6 @@
     (transact-batch conn txes 1000)))
 
 ;; sim ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
 (defmethod create-sim :default
   [conn test sim]
   (let [tx (generate-sim test sim)]
@@ -65,15 +64,34 @@
      :sim/type :sim.type/basic
      :test/_sims (e test))])
 
-;; processes join ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-#_(defmethod join-sim :sim/basic
+;; processes ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(defmethod join-sim :sim.type/basic
   [conn sim process]
-  (let [{:keys [db-after]} @(transact conn [[:sim/join (e sim) process-uuid]])]
-    (-> (q '[:find ?process
-             :in $ ?run ?process
-             :where [?run :run/processes ?process]]
-           db-after (e run) (e process))
-        ssolo)))
+  (let [id (getx process :db/id)]
+    (-> @(transact conn [[:sim/join (e sim) process]
+                         [:db/add id :process/type :process.type/basic]])
+        (tx-ent id))))
+
+(defmethod process-agents :process.type/basic
+  [process]
+  (let [sim (-> process :sim/_processes solo)
+        test (-> sim :test/_sims solo)
+        nprocs (:sim/processCount sim)
+        ord (:process/ordinal process)]
+    (->> (:test/agents test)
+         (sort-by :db/id)
+         (keep-partition ord nprocs))))
+
+(defn action-seq
+  "Returns lazy, time-ordered seq of actions for this process."
+  [db process]
+  (let [test (-> process :sim/_processes first :test/_sims first)
+        agent-ids (->> (process-agents process)
+                       (map :db/id)
+                       (into #{}))]
+    (->> (datoms db :avet :action/atTime)
+         (map (fn [datom] (entity db (:e datom))))
+         (filter (fn [action] (contains? agent-ids (-> action :agent/_actions solo :db/id)))))))
 
 ;; sim time ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (def sim-start (atom nil))
@@ -98,7 +116,6 @@
     (when (< tnow twhen)
       (Thread/sleep (- twhen tnow)))))
 
-
 ;; sim runner ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defn handle-action-error
   [actor agent ^Throwable error]
@@ -112,7 +129,6 @@
        (set-error-handler! a (partial handle-action-error x))
        (set-error-mode! a :continue)
        a))))
-
 
 (defn feed-action
   "Feed a single action to the actor's agent."
@@ -136,25 +152,7 @@
   [coll]
   (apply await (map via-agent-for coll)))
 
-(defn action-seq
-  [test process]
-  (let [nprocs (:sim/processCount test)
-        ord (:process/ordinal process)
-        agentids (->> (:test/agents test)
-                      (sort-by :db/id)
-                      (keep-partition ord nprocs)
-                      (map :db/id)
-                      (into #{}))]
-    (->> (datoms db :avet :action/atTime)
-         (map (fn [datom] (entity db (:e datom))))
-         (filter (fn [action] (contains? agentids (-> action :agent/_actions first)))))))
-
-(def puuid (squuid))
-
-(defn process-uuid
-  []
-  puuid)
-
+;; entry point runner
 (defn run-sim-process
   [uri simuuid]
   (let [procid (squuid)

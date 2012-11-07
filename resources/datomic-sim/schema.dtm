@@ -69,6 +69,7 @@
     :db/ident :action/atTime
     :db/valueType :db.type/long
     :db/doc "Time this action should happen, in msec relative to start of the sim."
+    :db/index true
     :db/cardinality :db.cardinality/one
     :db.install/_attribute :db.part/db}
    {:db/id #db/id[:db.part/db]
@@ -81,7 +82,7 @@
  
  :process
  [[{:db/id #db/id[:db.part/db]
-    :db/ident :process/basic}
+    :db/ident :process.type/basic}
    {:db/id #db/id[:db.part/db]
     :db/ident :process/type
     :db/valueType :db.type/ref
