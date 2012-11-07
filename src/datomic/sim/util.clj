@@ -37,6 +37,35 @@
 
 (def ssolo (comp solo solo))
 
+(defn qe
+  "Returns the single entity returned by a query."
+  [query db & args]
+  (when->> (apply q query db args) ssolo (entity db)))
+
+(defn find-by
+  "Returns the unique entity identified by attr and val."
+  [db attr val]
+  (qe '[:find ?e
+        :in $ ?attr ?val
+        :where [?e ?attr ?val]]
+      db attr val))
+
+(defn qes
+  "Returns the entities returned by a query, assuming that
+   all :find results are entity ids."
+  [query db & args]
+  (->> (apply q query db args)
+       (mapv (fn [items]
+               (mapv (partial entity db) items)))))
+
+(defn find-all-by
+  "Returns all entities possessing attr."
+  [db attr]
+  (qes '[:find ?e
+         :in $ ?attr
+         :where [?e ?attr]]
+       db attr))
+
 (defn transact-batch
   "Submit txes in batches of size batch-size."
   [conn txes batch-size]

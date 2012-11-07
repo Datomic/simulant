@@ -39,7 +39,7 @@
 
 (defmulti perform-action
   "Perform an action"
-  (fn [action] (:action/type action)))
+  (fn [action sim] (:action/type action)))
 
 
 ;; models ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

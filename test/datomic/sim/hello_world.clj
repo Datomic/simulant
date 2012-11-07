@@ -1,7 +1,9 @@
 (ns datomic.sim.hello-world
   (:use datomic.api datomic.sim.util)
-  (:require [clojure.test.generative.generators :as gen]
-            [datomic.sim :as sim]))
+  (:require
+   [clojure.java.io :as io]
+   [clojure.test.generative.generators :as gen]
+   [datomic.sim :as sim]))
 
 (defn create-hello-world-test
   "Returns test entity"
@@ -59,6 +61,37 @@
     (transact-batch conn (generate-all-trades test traders) 1000)
     (entity (db conn) (e test))))
 
+(defmethod sim/create-sim :test.type/helloWorld
+  [sim-conn test sim]
+  (let [model (-> test :model/_tests solo)
+        schema (-> "datomic-sim/trading.dtm" io/resource slurp read-string)
+        uri (doto (getx sim :sim/datomicURI)
+              (create-database))
+        trading-conn (connect uri)]
+    (doseq [k [:trading]]
+      (doseq [tx (get schema k)]
+        (transact trading-conn tx)))
+    (transact
+     trading-conn
+     (map
+      (fn [agent]
+        {:db/id (tempid :db.part/user)
+         :trader/id (:db/id agent)
+         :trader/balance (getx model :model/initialBalance)})
+      (:test/agents test)))
+    (-> @(transact sim-conn (sim/generate-sim test sim))
+        (tx-ent (:db/id sim)))))
 
+(defmethod sim/perform-action :action.type/trade
+  [action sim]
+  (let [trade-conn (connect (:sim/datomicURI sim))
+        trade-db (db trade-conn)
+        amount (:transfer/amount action)
+        from (find-by trade-db :trader/id (-> action :transfer/from :db/id))
+        to (find-by trade-db :trader/id (-> action :transfer/to :db/id))]
+    (transact
+     trade-conn
+     [[:inc (e from) :trader/balance (- amount)]
+      [:inc (e to) :trader/balance amount]])))
 
 

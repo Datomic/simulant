@@ -43,12 +43,23 @@
                                                  :test/duration (hours->msec 8)}))
 
 (def hello-sim (sim/create-sim sim-conn hello-test {:db/id (tempid :sim)
+                                                    :sim/datomicURI (str "datomic:mem://" (squuid))
                                                     :sim/processCount 2}))
+
+(set! *print-length* 20)
+(map
+ (fn [[e]] (:trader/balance e))
+ (find-all-by (db trade-conn) :trader/balance))
+
+(def trade-conn (connect (:sim/datomicURI hello-sim)))
+
 
 (def proc1 (sim/join-sim sim-conn hello-sim {:db/id (tempid :sim)}))
 (def proc2 (sim/join-sim sim-conn hello-sim {:db/id (tempid :sim)}))
 
-(map :action/atTime (sim/action-seq (db sim-conn) proc1))
+(def act1 (first (sim/action-seq (db sim-conn) proc1)))
+
+(sim/perform-action act1 hello-sim)
 
 (->> (datoms (db sim-conn) :avet :action/type)
      seq)
