@@ -31,7 +31,18 @@
     :db/valueType :db.type/double
     :db/doc "Multiply real time by a fixed multiplier"
     :db/cardinality :db.cardinality/one
-    :db.install/_attribute :db.part/db}]]
+    :db.install/_attribute :db.part/db}
+   {:db/id #db/id [:db.part/db]
+    :db/ident :deliver
+    :db/doc "Set an attribute's value iff not already set. Idempotent."
+    :db/fn #db/fn
+    {:lang "clojure"
+     :params [db e a v]
+     :code (when (zero? (count (q '[:find ?e ?a
+                                    :in $ ?e ?a
+                                    :where [?e ?a]]
+                                  db e a)))
+             [[:db/add e a v]])}}]]
  
  :model
  [[{:db/id #db/id[:db.part/db]

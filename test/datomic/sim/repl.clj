@@ -1,13 +1,16 @@
 (ns datomic.sim.repl
   (:require [datomic.api :as d]))
 
-(defn scratch-conn
-  "Create a connection to an anonymous, in-memory database."
-  []
-  (let [uri (str "datomic:mem://" (d/squuid))]
-    (d/delete-database uri)
-    (d/create-database uri)
-    (d/connect uri)))
+(defn reset-conn
+  "Reset connection to a scratch database. Used memory database if no
+   URL passed in."
+  ([]
+     (reset-conn (str "datomic:mem://" (d/squuid))))
+  ([uri]
+     (d/delete-database uri)
+     (d/create-database uri)
+     (d/connect uri)))
+
 
 (defn convenient
   []

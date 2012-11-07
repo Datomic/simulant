@@ -35,6 +35,14 @@
   (assert (not (next coll)))
   (first coll))
 
+(defn only
+  "Like first, but throws unless exactly one item."
+  [coll]
+  (assert (not (next coll)))
+  (if-let [result (first coll)]
+    result
+    (assert false)))
+
 (def ssolo (comp solo solo))
 
 (defn qe
@@ -111,3 +119,12 @@
     (when (pos? (count str))
       (read-string str))))
 
+(defmacro logged-future
+  "Future with logging of failure."
+  [& body]
+  `(future
+    (try
+     ~@body
+     (catch Throwable t#
+       (.printStackTrace t#)
+       (throw t#)))))

@@ -1,5 +1,6 @@
 (ns datomic.sim
-  (:use datomic.api datomic.sim.util))
+  (:use datomic.api datomic.sim.util)
+  (:require [clojure.test.generative.event :as event]))
 
 (set! *warn-on-reflection* true)
 
@@ -10,48 +11,48 @@
    test based on model. Default implementation calls generate-test
    to generate the transactions, and then batches and submits
    them. Returns test entity."
-  (fn [conn model test] (:model/type model)))
+  (fn [conn model test] (getx model :model/type)))
 
 (defmulti generate-test
   "Generate a series of transactions that constitute a test
    based on model"
-  (fn [model test] (:model/type model)))
+  (fn [model test] (getx model :model/type)))
 
 (defmulti create-sim
   "Execute a series of transactions agaist conn that create a
    sim based on test. Default implementation calls generate-sim
    to generate the transactions, and then submits them"
-  (fn [conn test sim] (:test/type test)))
+  (fn [conn test sim] (getx test :test/type)))
 
 (defmulti generate-sim
   "Generate a series of transactions that constitute a sim
    based on test, plus a map of sim configuration data."
-  (fn [test sim] (:test/type test)))
+  (fn [test sim] (getx test :test/type)))
 
 (defmulti join-sim
   "Returns a process entity or nil if could not join"
-  (fn [conn sim process] (:sim/type sim)))
+  (fn [conn sim process] (getx sim :sim/type)))
 
 (defmulti process-agents
   "Given a process that has joined a sim, return that process's
    agents"
-  (fn [process] (:process/type process)))
+  (fn [process] (getx process :process/type)))
 
 (defmulti perform-action
   "Perform an action"
-  (fn [action sim] (:action/type action)))
+  (fn [action sim] (getx action :action/type)))
 
 (defmulti start-clock
   "Start the sim clock, returns the updated clock"
-  (fn [conn clock] (:clock/type clock)))
+  (fn [conn clock] (getx clock :clock/type)))
 
 (defmulti sleep-until
   "Sleep until sim clock reaches clock-elapsed-time"
-  (fn [clock elapsed] (:clock/type clock)))
+  (fn [clock elapsed] (getx clock :clock/type)))
 
 (defmulti clock-elapsed-time
   "Return the elapsed simulation time, in msec"
-  (fn [clock] (:clock/type clock)))
+  (fn [clock] (getx clock :clock/type)))
 
 ;; models ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -76,11 +77,16 @@
      :test/_sims (e test))])
 
 ;; processes ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(defn start-sim
+  "Ensure sim is ready to begin, join process to it, return process."
+  [conn sim process]
+  (start-clock conn (getx sim :sim/clock))
+  (join-sim conn sim process))
+
 (defmethod join-sim :sim.type/basic
   [conn sim process]
   (let [id (getx process :db/id)]
-    (-> @(transact conn [[:sim/join (e sim) process]
-                         [:db/add id :process/type :process.type/basic]])
+    (-> @(transact conn [[:sim/join (e sim) (assoc process :process/type :process.type/basic)]])
         (tx-ent id))))
 
 (defmethod process-agents :process.type/basic
@@ -108,7 +114,7 @@
 (defmethod start-clock :clock.type/fixed
   [conn clock]
   (let [t (System/currentTimeMillis)
-        {:keys [db-after]} @(transact conn [[:db.fn/cas (e clock) :clock/realStart nil t]])]
+        {:keys [db-after]} @(transact conn [[:deliver (e clock) :clock/realStart t]])]
     (entity db-after (e clock))))
 
 (defmethod clock-elapsed-time :clock.type/fixed
@@ -122,50 +128,83 @@
   [clock twhen]
   (let [tnow (clock-elapsed-time clock)]
     (when (< tnow twhen)
-      (Thread/sleep (long (* (getx clock :clock/multiplier) (- twhen tnow)))))))
+      (Thread/sleep (long (/ (- twhen tnow) (getx clock :clock/multiplier)))))))
+
+(defn generate-fixed-clock
+  "Generates transaction data to create a fixed clock."
+  [sim clock]
+  (require-keys clock :db/id :clock/multiplier)
+  (let [id (:db/id clock)]
+    [(assoc (update-in clock [:clock/multiplier] double)
+       :clock/type :clock.type/fixed)
+     [:db.fn/cas (e sim) :sim/clock nil id]]))
+
+(defn create-fixed-clock
+  "Returns clock. Clock passed in must have :clock/multiplier"
+  [conn sim clock]
+  (let [id (get clock :db/id (tempid :sim))]
+    (-> @(transact conn (generate-fixed-clock sim (assoc clock :db/id id)))
+        (tx-ent id))))
 
 ;; sim runner ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defn handle-action-error
-  [actor agent ^Throwable error]
+  [sim-agent agent ^Throwable error]
   (.printStackTrace error))
 
 (def ^:private via-agent-for
   (memoize
-   (fn [x]
-     (assert x)
+   (fn [sim-agent]
+     (assert sim-agent)
      (let [a (agent nil)]
-       (set-error-handler! a (partial handle-action-error x))
+       (set-error-handler! a (partial handle-action-error sim-agent))
        (set-error-mode! a :continue)
        a))))
 
 (defn feed-action
   "Feed a single action to the actor's agent."
-  [{actor :sim/_actor :as action}]
-  (send-off
-   (via-agent-for (:db/id actor))
-   (fn [agent-state]
-     (perform-action action)
-     agent-state)))
+  [action sim]
+  (let [actor (-> (getx action :agent/_actions) only)]
+    (send-off
+     (via-agent-for actor)
+     (fn [agent-state]
+       (event/report :sim/action :sim/action (:db/id action) :tags #{:begin})
+       (perform-action action sim)
+       (event/report :sim/action :sim/action (:db/id action) :tags #{:end})
+       agent-state))))
 
-(defn feed-all
-  "Feed all actions, which should be sorted by ascending
-   :action/atTime"
-  [actions]
-  (doseq [{t :action/atTime :as action} actions]
-    (sleep-until t)
-    (feed-action action)))
+(defn feed-all-actions
+  "Feed all actions, which should be sorted by ascending :action/atTime"
+  [sim actions]
+  (let [clock (getx sim :sim/clock)]
+    (doseq [{elapsed :action/atTime :as action} actions]
+      (sleep-until clock elapsed)
+      (feed-action action sim))))
+
+(defn process-loop
+  "Returns a future"
+  [db process]
+  (logged-future
+   (let [sim (-> process :sim/_processes solo)
+         actions (action-seq db process)]
+     (feed-all-actions sim actions))))
 
 (defn await-all
   "Given a collection of objects, calls await on the agent for each one"
   [coll]
   (apply await (map via-agent-for coll)))
 
-(defn -main
+(defn run-sim-process
+  "Backgrounds process loop and returns process object, or returns
+   nil if unable to join sim."
   [sim-uri sim-id]
   (let [sim-conn (connect sim-uri)
-        sim (entity (db sim-conn) (safe-read-string sim-id))]
-    (if-let [process (join-sim sim-conn sim {:db/id (tempid :sim)})]
-      (println "Joined sim " sim-id " as process " (:db/id process))
-      (do
-        (println "Unable to join sim " sim-id)
-        (System/exit -1)))))
+        sim (entity (db sim-conn) sim-id)]
+    (when-let [process (start-sim sim-conn sim {:db/id (tempid :sim)})]
+      (process-loop (db sim-conn) process)
+      process)))
+
+(defn -main
+  [sim-uri sim-id]
+  (if-let [process (run-sim-process sim-uri (safe-read-string sim-id))]
+    (println "Joined sim " sim-id " as process " (:db/id process))
+    (println "Unable to join sim " sim-id)))
