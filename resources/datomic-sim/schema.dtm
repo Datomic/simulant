@@ -10,7 +10,10 @@
     :db/ident :sim}
    {:db.install/_partition :db.part/db,
     :db/id #db/id[:db.part/db],
-    :db/ident :process}]]
+    :db/ident :process}
+   {:db.install/_partition :db.part/db,
+    :db/id #db/id[:db.part/db],
+    :db/ident :log}]]
 
  :clock
  [[{:db/id #db/id[:db.part/db]
@@ -95,6 +98,32 @@
     :db/doc "Actions performed by this agent"
     :db/cardinality :db.cardinality/many
     :db.install/_attribute :db.part/db}]]
+
+ :log
+ [[{:db/id #db/id[:db.part/db]
+    :db/ident :log/action
+    :db/valueType :db.type/ref
+    :db/cardinality :db.cardinality/one
+    :db.install/_attribute :db.part/db}
+   {:db/id #db/id[:db.part/db]
+    :db/ident :log/process
+    :db/valueType :db.type/ref
+    :db/cardinality :db.cardinality/one
+    :db.install/_attribute :db.part/db}   
+   {:db/id #db/id[:db.part/db]
+    :db/ident :log/actionStart
+    :db/valueType :db.type/long
+    :db/doc "Start time of action, by system clock"
+    :db/index true
+    :db/cardinality :db.cardinality/one
+    :db.install/_attribute :db.part/db}
+   {:db/id #db/id[:db.part/db]
+    :db/ident :log/actionEnd
+    :db/valueType :db.type/long
+    :db/doc "End time of action, by system clock"
+    :db/index true
+    :db/cardinality :db.cardinality/one
+    :db.install/_attribute :db.part/db}   ]]
  
  :action
  [[{:db/id #db/id[:db.part/db]
@@ -160,9 +189,9 @@
     :db/cardinality :db.cardinality/one
     :db.install/_attribute :db.part/db}
    {:db/id #db/id[:db.part/db]
-    :db/ident :sim/datomicURI
+    :db/ident :sim/systemURI
     :db/valueType :db.type/string
-    :db/doc "Convenience attribute for sims that use a single Datomic connection."
+    :db/doc "System under test"
     :db/cardinality :db.cardinality/one
     :db.install/_attribute :db.part/db}   
    {:db/id #db/id[:db.part/db]

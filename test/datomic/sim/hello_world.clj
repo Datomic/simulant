@@ -65,7 +65,7 @@
   [sim-conn test sim]
   (let [model (-> test :model/_tests solo)
         schema (-> "datomic-sim/trading.dtm" io/resource slurp read-string)
-        uri (doto (getx sim :sim/datomicURI)
+        uri (doto (getx sim :sim/systemURI)
               (create-database))
         trading-conn (connect uri)]
     (doseq [k [:trading]]
@@ -84,7 +84,7 @@
 
 (defmethod sim/perform-action :action.type/trade
   [action sim]
-  (let [trade-conn (connect (:sim/datomicURI sim))
+  (let [trade-conn (connect (:sim/systemURI sim))
         trade-db (db trade-conn)
         amount (:transfer/amount action)
         from (find-by trade-db :trader/id (-> action :transfer/from :db/id))

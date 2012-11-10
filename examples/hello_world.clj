@@ -7,7 +7,7 @@
 (def sim-schema (-> "datomic-sim/schema.dtm" io/resource slurp read-string))
 (def hello-schema (-> "datomic-sim/hello-world.dtm" io/resource slurp read-string))
 
-(doseq [k [:core :model :test :agent :action :clock :sim :process]]
+(doseq [k [:core :model :test :agent :action :clock :sim :process :log]]
   (doseq [tx (get sim-schema k)]
     (transact sim-conn tx)))
 
@@ -30,13 +30,13 @@
 
 (def hello-test (sim/create-test sim-conn model
                                  {:db/id (tempid :test)
-                                  :test/duration (hours->msec 8)}))
+                                  :test/duration (hours->msec 4)}))
 
 (def hello-sim (sim/create-sim sim-conn hello-test {:db/id (tempid :sim)
-                                                    :sim/datomicURI (str "datomic:mem://" (squuid))
+                                                    :sim/systemURI (str "datomic:mem://" (squuid))
                                                     :sim/processCount 2}))
 
-(def hello-clock (sim/create-fixed-clock sim-conn hello-sim {:clock/multiplier 50}))
+(def hello-clock (sim/create-fixed-clock sim-conn hello-sim {:clock/multiplier 480}))
 
 (def prun (sim/run-sim-process sim-uri (:db/id hello-sim)))
 
@@ -44,4 +44,30 @@
 (future-cancel (:runner prun))
 (sim/clock-elapsed-time (-> (:process prun) :sim/_processes first :sim/clock))
 (sim/sleep-until (-> process :sim/_processes first :sim/clock) 287442)
+
+(find-all-by (db sim-conn) :log/process)
+
+(sim/process-agents (:process prun))
+;; find log info for all the trades
+(defn action-time
+  [action]
+  (- (getx action :log/actionEnd)
+     (getx action :log/actionStart)))
+
+(touch (entity (db sim-conn) (:db/id (:process prun))))
+
+(def trade-action-log (qes '[:find ?e
+                             :in $ ?process ?action-type
+                             :where
+                             [?e :log/process ?process]
+                             [?e :log/action ?action]
+                             [?action :action/type ?action-type]]
+                           (db sim-conn)
+                           (:db/id (:process prun))
+                           :action.type/trade))
+
+
+
+
+
 

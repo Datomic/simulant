@@ -40,10 +40,6 @@
    agents"
   (fn [process] (getx process :process/type)))
 
-(defmulti action-seq
-  "Returns lazy, time-ordered seq of actions for this process."
-  (fn [db process] (getx process :process/type)))
-
 (defmulti perform-action
   "Perform an action"
   (fn [action sim] (getx action :action/type)))
@@ -112,23 +108,22 @@
 
 (defmethod process-agents :default
   [process]
-  (let [sim (-> process :sim/_processes solo)
-        test (-> sim :test/_sims solo)
+  (let [sim (-> process :sim/_processes only)
+        test (-> sim :test/_sims only)
         nprocs (:sim/processCount sim)
         ord (:process/ordinal process)]
     (->> (:test/agents test)
          (sort-by :db/id)
          (keep-partition ord nprocs))))
 
-(defmethod action-seq :default
-  [db process]
-  (let [test (-> process :sim/_processes first :test/_sims first)
-        agent-ids (->> (process-agents process)
+(defn action-seq
+  [db agents]
+  (let [agent-ids (->> agents
                        (map :db/id)
                        (into #{}))]
     (->> (datoms db :avet :action/atTime)
          (map (fn [datom] (entity db (:e datom))))
-         (filter (fn [action] (contains? agent-ids (-> action :agent/_actions solo :db/id)))))))
+         (filter (fn [action] (contains? agent-ids (-> action :agent/_actions only :db/id)))))))
 
 ;; sim time (fixed clock) ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defmethod start-clock :clock.type/fixed
@@ -165,6 +160,41 @@
   (let [id (get clock :db/id (tempid :sim))]
     (-> @(transact conn (generate-fixed-clock sim (assoc clock :db/id id)))
         (tx-ent id))))
+
+;; action logging ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(defn process-log-file
+  [process]
+  (str (:process/uuid process) "-events.clj"))
+
+(defmacro with-process-log
+  [process & body]
+  `(with-open [^java.io.Writer f# (io/writer (process-log-file ~process))]
+     (let [handler# (fn [m#]
+                      (.write f# (pr-str m#))
+                      (.write f# 10)
+                      (.flush f#))]
+       (event/with-handler handler#
+         ~@body))))
+
+(defn action-log->data
+  [process coll]
+  (->> coll
+       (filter #(= :sim/action (:type %)))
+       (map (fn [line]
+              ;; take advantage of log/action relationship
+              ;; so that start and end events get same tempid
+              (let [logid (tempid :log (- (getx line :sim/action)))]
+                (if (contains? (:tags line) :begin)
+                  [{:db/id logid
+                    :log/action (getx line :sim/action)
+                    :log/process (e process)
+                    :log/actionStart (getx line :tstamp)}]
+                  [[:db/add logid :log/actionEnd (getx line :tstamp)]]))))))
+
+(defn transact-action-logs
+  [sim-conn process]
+  (with-open [f (io/reader (process-log-file process))]
+    (transact-batch sim-conn (action-log->data process (map read-string (line-seq f))) 1000)))
 
 ;; sim runner ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defn handle-action-error
@@ -208,41 +238,30 @@
     (.printStackTrace t ps)
     (str s)))
 
-(defn process-log-file
-  [process]
-  (str (:process/uuid process) "-events.clj"))
-
-(defmacro with-process-log
-  [process & body]
-  `(with-open [^java.io.Writer f# (io/writer (process-log-file ~process))]
-     (let [handler# (fn [m#]
-                      (.write f# (pr-str m#))
-                      (.write f# 10)
-                      (.flush f#))]
-       (event/with-handler handler#
-         ~@body))))
+(defn await-all
+  "Given a collection of objects, calls await on the agent for each one"
+  [coll]
+  (apply await (map via-agent-for coll)))
 
 (defn process-loop
   "Returns a future"
   [sim-conn process]
   (logged-future
    (with-process-log process
-     (let [sim (-> process :sim/_processes solo)
-           actions (action-seq (db sim-conn) process)]
+     (let [sim (-> process :sim/_processes only)
+           agents (process-agents process)
+           actions (action-seq (db sim-conn) agents)]
        (try
         (feed-all-actions sim actions)
+        (await-all agents)
         (catch Throwable t
           (.printStackTrace t)
           (transact sim-conn [{:db/id (:db/id process)
                                :process/state :process.state/failed
                                :process/errorDescription (stack-trace-string t)}])
           (throw t)))))
-   (transact sim-conn [:db/add (:db/id process) :process/state :process.state/completed])))
-
-(defn await-all
-  "Given a collection of objects, calls await on the agent for each one"
-  [coll]
-  (apply await (map via-agent-for coll)))
+   (transact sim-conn [[:db/add (:db/id process) :process/state :process.state/completed]])
+   (transact-action-logs sim-conn process)))
 
 (defn run-sim-process
   "Backgrounds process loop and returns process object. Returns map
