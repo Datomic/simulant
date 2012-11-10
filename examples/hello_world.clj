@@ -38,8 +38,10 @@
 
 (def hello-clock (sim/create-fixed-clock sim-conn hello-sim {:clock/multiplier 50}))
 
-(def process (sim/run-sim-process sim-uri (:db/id hello-sim)))
+(def prun (sim/run-sim-process sim-uri (:db/id hello-sim)))
 
-(sim/clock-elapsed-time (-> process :sim/_processes first :sim/clock))
+;; if you wanted to stop
+(future-cancel (:runner prun))
+(sim/clock-elapsed-time (-> (:process prun) :sim/_processes first :sim/clock))
 (sim/sleep-until (-> process :sim/_processes first :sim/clock) 287442)
 

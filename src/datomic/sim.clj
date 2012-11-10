@@ -1,6 +1,8 @@
 (ns datomic.sim
   (:use datomic.api datomic.sim.util)
-  (:require [clojure.test.generative.event :as event]))
+  (:require [clojure.test.generative.event :as event]
+            [clojure.java.io :as io])
+  (:import [java.util.concurrent Executors]))
 
 (set! *warn-on-reflection* true)
 
@@ -30,13 +32,17 @@
   (fn [test sim] (getx test :test/type)))
 
 (defmulti join-sim
-  "Returns a process entity or nil if could not join"
+  "Returns a process entity or nil if could not join."
   (fn [conn sim process] (getx sim :sim/type)))
 
 (defmulti process-agents
   "Given a process that has joined a sim, return that process's
    agents"
   (fn [process] (getx process :process/type)))
+
+(defmulti action-seq
+  "Returns lazy, time-ordered seq of actions for this process."
+  (fn [db process] (getx process :process/type)))
 
 (defmulti perform-action
   "Perform an action"
@@ -77,19 +83,34 @@
      :test/_sims (e test))])
 
 ;; processes ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-(defn start-sim
-  "Ensure sim is ready to begin, join process to it, return process."
-  [conn sim process]
-  (start-clock conn (getx sim :sim/clock))
-  (join-sim conn sim process))
+(def default-executor
+  (delay
+   (Executors/newFixedThreadPool 100)))
 
-(defmethod join-sim :sim.type/basic
+(def process-executor
+  (atom nil))
+
+(defn start-sim
+  "Ensure sim is ready to begin, join process to it, return process.
+   Sets the executor service used by sim actors."
+  ([conn sim process]
+     (start-sim conn sim process @default-executor))
+  ([conn sim process executor]
+     (reset! process-executor executor)
+     (start-clock conn (getx sim :sim/clock))
+     (join-sim conn sim process)))
+
+(defmethod join-sim :default
   [conn sim process]
-  (let [id (getx process :db/id)]
-    (-> @(transact conn [[:sim/join (e sim) (assoc process :process/type :process.type/basic)]])
+  (let [id (getx process :db/id)
+        ptype (keyword "process.type" (name (:sim/type sim)))]
+    (-> @(transact conn [[:sim/join (e sim) (assoc process
+                                              :process/type ptype
+                                              :process/state :process.state/running
+                                              :process/uuid (squuid))]])
         (tx-ent id))))
 
-(defmethod process-agents :process.type/basic
+(defmethod process-agents :default
   [process]
   (let [sim (-> process :sim/_processes solo)
         test (-> sim :test/_sims solo)
@@ -99,8 +120,7 @@
          (sort-by :db/id)
          (keep-partition ord nprocs))))
 
-(defn action-seq
-  "Returns lazy, time-ordered seq of actions for this process."
+(defmethod action-seq :default
   [db process]
   (let [test (-> process :sim/_processes first :test/_sims first)
         agent-ids (->> (process-agents process)
@@ -157,14 +177,15 @@
      (assert sim-agent)
      (let [a (agent nil)]
        (set-error-handler! a (partial handle-action-error sim-agent))
-       (set-error-mode! a :continue)
+       (set-error-mode! a :fail)
        a))))
 
 (defn feed-action
   "Feed a single action to the actor's agent."
   [action sim]
   (let [actor (-> (getx action :agent/_actions) only)]
-    (send-off
+    (send-via
+     @process-executor
      (via-agent-for actor)
      (fn [agent-state]
        (event/report :sim/action :sim/action (:db/id action) :tags #{:begin})
@@ -180,13 +201,43 @@
       (sleep-until clock elapsed)
       (feed-action action sim))))
 
+(defn stack-trace-string
+  [^Throwable t]
+  (let [s (java.io.StringWriter.)
+        ps (java.io.PrintWriter. s)]
+    (.printStackTrace t ps)
+    (str s)))
+
+(defn process-log-file
+  [process]
+  (str (:process/uuid process) "-events.clj"))
+
+(defmacro with-process-log
+  [process & body]
+  `(with-open [^java.io.Writer f# (io/writer (process-log-file ~process))]
+     (let [handler# (fn [m#]
+                      (.write f# (pr-str m#))
+                      (.write f# 10)
+                      (.flush f#))]
+       (event/with-handler handler#
+         ~@body))))
+
 (defn process-loop
   "Returns a future"
-  [db process]
+  [sim-conn process]
   (logged-future
-   (let [sim (-> process :sim/_processes solo)
-         actions (action-seq db process)]
-     (feed-all-actions sim actions))))
+   (with-process-log process
+     (let [sim (-> process :sim/_processes solo)
+           actions (action-seq (db sim-conn) process)]
+       (try
+        (feed-all-actions sim actions)
+        (catch Throwable t
+          (.printStackTrace t)
+          (transact sim-conn [{:db/id (:db/id process)
+                               :process/state :process.state/failed
+                               :process/errorDescription (stack-trace-string t)}])
+          (throw t)))))
+   (transact sim-conn [:db/add (:db/id process) :process/state :process.state/completed])))
 
 (defn await-all
   "Given a collection of objects, calls await on the agent for each one"
@@ -194,14 +245,14 @@
   (apply await (map via-agent-for coll)))
 
 (defn run-sim-process
-  "Backgrounds process loop and returns process object, or returns
-   nil if unable to join sim."
+  "Backgrounds process loop and returns process object. Returns map
+   with keys :process and :runner (a future), or nil if unable to run sim"
   [sim-uri sim-id]
   (let [sim-conn (connect sim-uri)
         sim (entity (db sim-conn) sim-id)]
     (when-let [process (start-sim sim-conn sim {:db/id (tempid :sim)})]
-      (process-loop (db sim-conn) process)
-      process)))
+      (let [fut (process-loop sim-conn process)]
+        {:process process :runner fut}))))
 
 (defn -main
   [sim-uri sim-id]

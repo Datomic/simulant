@@ -116,10 +116,27 @@
  [[{:db/id #db/id[:db.part/db]
     :db/ident :process.type/basic}
    {:db/id #db/id[:db.part/db]
+    :db/ident :process.state/running}   
+   {:db/id #db/id[:db.part/db]
+    :db/ident :process.state/completed}   
+   {:db/id #db/id[:db.part/db]
+    :db/ident :process.state/failed}
+   {:db/id #db/id[:db.part/db]
+    :db/ident :process/errorDescription
+    :db/valueType :db.type/string
+    :db/cardinality :db.cardinality/one
+    :db/doc "Human readable description of process error, if any"
+    :db.install/_attribute :db.part/db}   
+   {:db/id #db/id[:db.part/db]
     :db/ident :process/type
     :db/valueType :db.type/ref
     :db/cardinality :db.cardinality/one
     :db.install/_attribute :db.part/db}
+   {:db/id #db/id[:db.part/db]
+    :db/ident :process/state
+    :db/valueType :db.type/ref
+    :db/cardinality :db.cardinality/one
+    :db.install/_attribute :db.part/db}   
    {:db/id #db/id[:db.part/db]
     :db/ident :process/ordinal
     :db/valueType :db.type/long
@@ -128,7 +145,7 @@
     :db.install/_attribute :db.part/db}
    {:db/id #db/id[:db.part/db]
     :db/ident :process/uuid
-    :db/valueType :db.type/long
+    :db/valueType :db.type/uuid
     :db/doc "Unique id for process"
     :db/unique :db.unique/value
     :db/cardinality :db.cardinality/one
