@@ -162,9 +162,10 @@
         (tx-ent id))))
 
 ;; action logging ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-(defn process-log-file
-  [process]
-  (str (:process/uuid process) "-events.clj"))
+(def ^java.io.File process-log-file
+  (memoize
+   (fn [process]
+     (java.io.File/createTempFile (str (getx process :process/uuid)) "-events.clj"))))
 
 (defmacro with-process-log
   [process & body]
@@ -261,7 +262,8 @@
                                :process/errorDescription (stack-trace-string t)}])
           (throw t)))))
    (transact sim-conn [[:db/add (:db/id process) :process/state :process.state/completed]])
-   (transact-action-logs sim-conn process)))
+   (transact-action-logs sim-conn process)
+   (.delete (process-log-file process))))
 
 (defn run-sim-process
   "Backgrounds process loop and returns process object. Returns map

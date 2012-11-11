@@ -1,4 +1,4 @@
-(defproject com.datomic/datomic-sim "0.1.1"
+(defproject com.datomic/datomic-sim "0.1.2"
   :description "Simulation testing with Datomic"
   :dependencies [[org.clojure/clojure "1.5.0-beta1"]
                  [org.clojure/test.generative "0.1.9"]
