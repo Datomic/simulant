@@ -278,3 +278,26 @@
   (if-let [process (run-sim-process sim-uri (safe-read-string sim-id))]
     (println "Joined sim " sim-id " as process " (:db/id process))
     (println "Unable to join sim " sim-id)))
+
+;; queries ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defn action-time
+  [action]
+  (- (getx action :log/actionEnd)
+     (getx action :log/actionStart)))
+
+(defn action-log-entries
+  "Find the action entries for a sim, scoped to given action-types"
+  [db sim & action-types]
+  (qes '[:find ?e
+         :in $ ?sim [?action-type ...]
+         :where
+         [?sim :sim/processes ?process]
+         [?e :log/process ?process]
+         [?e :log/action ?action]
+         [?action :action/type ?action-type]]
+       db
+       (e sim)
+       action-types))
+
+
