@@ -48,23 +48,7 @@
 (find-all-by (db sim-conn) :log/process)
 
 (sim/process-agents (:process prun))
-;; find log info for all the trades
-(defn action-time
-  [action]
-  (- (getx action :log/actionEnd)
-     (getx action :log/actionStart)))
 
-(touch (entity (db sim-conn) (:db/id (:process prun))))
-
-(def trade-action-log (qes '[:find ?e
-                             :in $ ?process ?action-type
-                             :where
-                             [?e :log/process ?process]
-                             [?e :log/action ?action]
-                             [?action :action/type ?action-type]]
-                           (db sim-conn)
-                           (:db/id (:process prun))
-                           :action.type/trade))
 
 
 

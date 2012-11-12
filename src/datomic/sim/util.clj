@@ -18,6 +18,12 @@
       e 
       (throw (ex-info "Missing required key" {:map m :key k})))))
 
+(defn getx-in
+  "Like two-argument get-in, but throws an exception if the key is
+   not found."
+  [m ks] 
+  (reduce getx m ks))
+
 (defn keep-partition
   "Keep 1/group-size items from coll, round robin,
    offset from zero by ordinal."
@@ -44,6 +50,7 @@
     (assert false)))
 
 (def ssolo (comp solo solo))
+(def oonly (comp only only))
 
 (defn qe
   "Returns the single entity returned by a query."
@@ -75,11 +82,12 @@
        db attr))
 
 (defn transact-batch
-  "Submit txes in batches of size batch-size."
-  [conn txes batch-size]
-  (doseq [batch (partition-all batch-size txes)]
-    @(transact-async conn (mapcat identity batch))
-    :ok))
+  "Submit txes in batches of size batch-size, default is 100"
+  ([conn txes] (transact-batch conn txes 100))
+  ([conn txes batch-size]
+     (doseq [batch (partition-all batch-size txes)]
+       @(transact-async conn (mapcat identity batch))
+       :ok)))
 
 (defn tx-ent
   [txresult eid]
@@ -109,9 +117,12 @@
   (e [n] n)
 
   datomic.Entity
+  (e [ent] (:db/id ent))
+
+  java.util.Map
   (e [ent] (:db/id ent)))
 
-(defn hours->msec [h] (* h 60 60 1000))
+(defn hours->msec ^long [h] (long (* h 60 60 1000)))
 
 (defn safe-read-string 
   [str]

@@ -1,6 +1,7 @@
 (ns datomic.sim
   (:use datomic.api datomic.sim.util)
   (:require [clojure.test.generative.event :as event]
+            [clojure.test.generative.io :as gio]
             [clojure.java.io :as io])
   (:import [java.util.concurrent Executors]))
 
@@ -81,7 +82,7 @@
 ;; processes ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (def default-executor
   (delay
-   (Executors/newFixedThreadPool 100)))
+   (Executors/newFixedThreadPool 50)))
 
 (def process-executor
   (atom nil))
@@ -169,13 +170,18 @@
 
 (defmacro with-process-log
   [process & body]
-  `(with-open [^java.io.Writer f# (io/writer (process-log-file ~process))]
-     (let [handler# (fn [m#]
-                      (.write f# (pr-str m#))
-                      (.write f# 10)
-                      (.flush f#))]
-       (event/with-handler handler#
-         ~@body))))
+  `(let [a# (agent nil)]
+     (with-open [^java.io.Writer f# (io/writer (process-log-file ~process))]
+       (let [handler# (gio/serialized (fn [m#]
+                                        (.write f# (pr-str m#))
+                                        (.write f# 10)
+                                        (.flush f#))
+                                      a#)]
+         (try
+          (event/with-handler handler#
+            ~@body)
+          (finally
+           (await a#)))))))
 
 (defn action-log->data
   [process coll]
@@ -254,13 +260,14 @@
            actions (action-seq (db sim-conn) agents)]
        (try
         (feed-all-actions sim actions)
-        (await-all agents)
         (catch Throwable t
           (.printStackTrace t)
           (transact sim-conn [{:db/id (:db/id process)
                                :process/state :process.state/failed
                                :process/errorDescription (stack-trace-string t)}])
-          (throw t)))))
+          (throw t))
+        (finally
+         (await-all agents)))))
    (transact sim-conn [[:db/add (:db/id process) :process/state :process.state/completed]])
    (transact-action-logs sim-conn process)
    (.delete (process-log-file process))))

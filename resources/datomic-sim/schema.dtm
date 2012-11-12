@@ -93,6 +93,12 @@
     :db/cardinality :db.cardinality/one
     :db.install/_attribute :db.part/db}
    {:db/id #db/id[:db.part/db]
+    :db/ident :agent/errorDescription
+    :db/valueType :db.type/string
+    :db/cardinality :db.cardinality/one
+    :db/doc "Human readable description of agent error, if any"
+    :db.install/_attribute :db.part/db}   
+   {:db/id #db/id[:db.part/db]
     :db/ident :agent/actions
     :db/valueType :db.type/ref
     :db/doc "Actions performed by this agent"
