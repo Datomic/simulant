@@ -1,4 +1,21 @@
-{:trading
+{:transfer
+ [[{:db/id #db/id[:db.part/db]
+    :db/ident :transfer/from
+    :db/valueType :db.type/ref
+    :db/cardinality :db.cardinality/one
+    :db.install/_attribute :db.part/db}
+   {:db/id #db/id[:db.part/db]
+    :db/ident :transfer/to
+    :db/valueType :db.type/ref
+    :db/cardinality :db.cardinality/one
+    :db.install/_attribute :db.part/db}
+   {:db/id #db/id[:db.part/db]
+    :db/ident :transfer/amount
+    :db/valueType :db.type/long
+    :db/cardinality :db.cardinality/one
+    :db.install/_attribute :db.part/db}]]
+ 
+ :trading
  [[{:db/id #db/id[:db.part/db]
     :db/ident :trader/id
     :db/valueType :db.type/long
@@ -6,14 +23,7 @@
     :db/cardinality :db.cardinality/one
     :db.install/_attribute :db.part/db}
    {:db/id #db/id[:db.part/db]
-    :db/ident :trader/balance
+    :db/ident :trader/initialBalance
     :db/valueType :db.type/long
     :db/cardinality :db.cardinality/one
-    :db.install/_attribute :db.part/db}
-   {:db/id #db/id [:db.part/user]
-    :db/ident :inc
-    :db/doc "Data function that increments value of attribute a by amount."
-    :db/fn #db/fn {:lang "clojure"
-                   :params [db e a amount]
-                   :code [[:db/add e a
-                           (-> (d/entity db e) a (+ amount))]]}}]]}
+    :db.install/_attribute :db.part/db}]]}

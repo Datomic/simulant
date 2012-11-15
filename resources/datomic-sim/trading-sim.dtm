@@ -1,6 +1,6 @@
 {:model
  [[{:db/id #db/id[:db.part/db]
-    :db/ident :model.type/helloWorld
+    :db/ident :model.type/trading
     :db/doc "A degenerate trading system with a single type of trader,
 tracking only balances."}
    {:db/id #db/id[:db.part/db]
@@ -22,32 +22,17 @@ tracking only balances."}
     :db/cardinality :db.cardinality/one
     :db.install/_attribute :db.part/db}   
    {:db/id #db/id[:db.part/db]
-    :db/ident :model/meanTradeFrequency
+    :db/ident :model/meanHoursBetweenTrades
     :db/valueType :db.type/long
     :db/doc "Mean time between trades in hours (geometric distribution)"
     :db/cardinality :db.cardinality/one
     :db.install/_attribute :db.part/db}]]
  :test
  [[{:db/id #db/id[:db.part/db]
-    :db/ident :test.type/helloWorld}
+    :db/ident :test.type/trading}
    {:db/id #db/id[:db.part/db]
     :db/ident :agent.type/trader}
    {:db/id #db/id[:db.part/db]
-    :db/ident :action.type/trade}
-   {:db/id #db/id[:db.part/db]
-    :db/ident :transfer/from
-    :db/valueType :db.type/ref
-    :db/cardinality :db.cardinality/one
-    :db.install/_attribute :db.part/db}
-   {:db/id #db/id[:db.part/db]
-    :db/ident :transfer/to
-    :db/valueType :db.type/ref
-    :db/cardinality :db.cardinality/one
-    :db.install/_attribute :db.part/db}
-   {:db/id #db/id[:db.part/db]
-    :db/ident :transfer/amount
-    :db/valueType :db.type/long
-    :db/cardinality :db.cardinality/one
-    :db.install/_attribute :db.part/db}]]
+    :db/ident :action.type/trade}]]
  
  }
