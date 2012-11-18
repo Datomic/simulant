@@ -1,5 +1,7 @@
 (use 'datomic.sim.repl)
 (convenient)
+(use 'datomic.examples.trading-sim)
+(require '[datomic.examples.trading :as trading])
 
 (def sim-uri (str "datomic:mem://" (squuid)))
 

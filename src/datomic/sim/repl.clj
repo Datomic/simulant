@@ -26,12 +26,11 @@
   (set! *print-length* 20)
   (use '[datomic.api :as d])
   (use 'datomic.math)
-  (use 'datomic.sim.util 'datomic.examples.trading-sim)
+  (use 'datomic.sim.util)
   (require
    '[clojure.string :as str]
    '[clojure.java.io :as io]
    '[clojure.set :as set]
-   '[clojure.test.generative.generators :as gen]
+   '[clojure.data.generators :as gen]
    '[clojure.pprint :as pprint]
-   '[datomic.examples.trading :as trading] 
    '[datomic.sim :as sim]))
