@@ -1,36 +1,59 @@
 (ns datomic.sim
   (:use datomic.api datomic.sim.util)
-  (:require [clojure.test.generative.event :as event]
-            [clojure.test.generative.io :as gio]
-            [clojure.java.io :as io])
+  (:require [clojure.java.io :as io])
   (:import [java.util.concurrent Executors]))
 
 (set! *warn-on-reflection* true)
 
-;; generate model & create-model have no multimethods
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; methods commonly used to implement a sim 
 
 (defmulti create-test
   "Execute a series of transactions agaist conn that create a
-   test based on model. Default implementation calls generate-test
-   to generate the transactions, and then batches and submits
-   them. Returns test entity."
+   test based on model."
   (fn [conn model test] (getx model :model/type)))
-
-(defmulti generate-test
-  "Generate a series of transactions that constitute a test
-   based on model"
-  (fn [model test] (getx model :model/type)))
 
 (defmulti create-sim
   "Execute a series of transactions agaist conn that create a
-   sim based on test. Default implementation calls generate-sim
-   to generate the transactions, and then submits them"
+   sim based on test."
   (fn [conn test sim] (getx test :test/type)))
 
-(defmulti generate-sim
-  "Generate a series of transactions that constitute a sim
-   based on test, plus a map of sim configuration data."
-  (fn [test sim] (getx test :test/type)))
+(defmulti perform-action
+  "Perform an action."
+  (fn [action sim] (getx action :action/type)))
+
+(defmulti lifecycle
+  "Return Lifecycle protocol implementation associcated with
+   entity. Defaults to no-op."
+  (fn [entity] (get entity :lifecycle/type)))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; resource management lifecycle
+
+(defprotocol Lifecycle
+  (setup [_ conn entity] "Returns resources map which will be available to teardown.")
+  (teardown [_ conn entity resources]))
+
+(defmethod lifecycle :default
+  [entity]
+  (reify Lifecycle
+         (setup [this conn entity] (println "Setup for " entity))
+         (teardown [this conn entity resources] (println "Teardown for " entity))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; helper fns
+
+(defn construct-basic-sim
+  "Construct a basic sim that assigns agents round-robin to
+   n symmetric processes."
+  [test sim]
+  (require-keys sim :db/id :sim/processCount)
+  [(assoc sim
+     :sim/type :sim.type/basic
+     :test/_sims (e test))])
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; methods implemented only in special circumstances
 
 (defmulti join-sim
   "Returns a process entity or nil if could not join."
@@ -40,10 +63,6 @@
   "Given a process that has joined a sim, return that process's
    agents"
   (fn [process] (getx process :process/type)))
-
-(defmulti perform-action
-  "Perform an action"
-  (fn [action sim] (getx action :action/type)))
 
 (defmulti start-clock
   "Start the sim clock, returns the updated clock"
@@ -56,28 +75,6 @@
 (defmulti clock-elapsed-time
   "Return the elapsed simulation time, in msec"
   (fn [clock] (getx clock :clock/type)))
-
-;; models ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-;; tests ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-(defmethod create-test :default
-  [conn model test]
-  (let [txes (generate-test model test)]
-    (transact-batch conn txes 1000)))
-
-;; sim ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-(defmethod create-sim :default
-  [conn test sim]
-  (let [tx (generate-sim test sim)]
-    (-> @(transact conn tx)
-        (tx-ent (:db/id sim)))))
-
-(defmethod generate-sim :default
-  [test sim]
-  (require-keys sim :db/id :sim/processCount)
-  [(assoc sim
-     :sim/type :sim.type/basic
-     :test/_sims (e test))])
 
 ;; processes ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (def default-executor
@@ -146,7 +143,7 @@
     (when (< tnow twhen)
       (Thread/sleep (long (/ (- twhen tnow) (getx clock :clock/multiplier)))))))
 
-(defn generate-fixed-clock
+(defn construct-fixed-clock
   "Generates transaction data to create a fixed clock."
   [sim clock]
   (require-keys clock :db/id :clock/multiplier)
@@ -159,49 +156,8 @@
   "Returns clock. Clock passed in must have :clock/multiplier"
   [conn sim clock]
   (let [id (get clock :db/id (tempid :sim))]
-    (-> @(transact conn (generate-fixed-clock sim (assoc clock :db/id id)))
+    (-> @(transact conn (construct-fixed-clock sim (assoc clock :db/id id)))
         (tx-ent id))))
-
-;; action logging ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-(def ^java.io.File process-log-file
-  (memoize
-   (fn [process]
-     (java.io.File/createTempFile (str (getx process :process/uuid)) "-events.clj"))))
-
-(defmacro with-process-log
-  [process & body]
-  `(let [a# (agent nil)]
-     (with-open [^java.io.Writer f# (io/writer (process-log-file ~process))]
-       (let [handler# (gio/serialized (fn [m#]
-                                        (.write f# (pr-str m#))
-                                        (.write f# 10)
-                                        (.flush f#))
-                                      a#)]
-         (try
-          (event/with-handler handler#
-            ~@body)
-          (finally
-           (await a#)))))))
-
-(defn action-log->data
-  [process coll]
-  (->> coll
-       (filter #(= :sim/action (:type %)))
-       (map (fn [line]
-              ;; take advantage of log/action relationship
-              ;; so that start and end events get same tempid
-              (let [logid (tempid :log (- (getx line :sim/action)))]
-                (if (contains? (:tags line) :begin)
-                  [{:db/id logid
-                    :log/action (getx line :sim/action)
-                    :log/process (e process)
-                    :log/actionStart (getx line :tstamp)}]
-                  [[:db/add logid :log/actionEnd (getx line :tstamp)]]))))))
-
-(defn transact-action-logs
-  [sim-conn process]
-  (with-open [f (io/reader (process-log-file process))]
-    (transact-batch sim-conn (action-log->data process (map read-string (line-seq f))) 1000)))
 
 ;; sim runner ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defn handle-action-error
@@ -225,9 +181,9 @@
      @process-executor
      (via-agent-for actor)
      (fn [agent-state]
-       (event/report :sim/action :sim/action (:db/id action) :tags #{:begin})
+       
        (perform-action action sim)
-       (event/report :sim/action :sim/action (:db/id action) :tags #{:end})
+       
        agent-state))))
 
 (defn feed-all-actions
@@ -254,23 +210,23 @@
   "Returns a future"
   [sim-conn process]
   (logged-future
-   (with-process-log process
-     (let [sim (-> process :sim/_processes only)
-           agents (process-agents process)
-           actions (action-seq (db sim-conn) agents)]
-       (try
-        (feed-all-actions sim actions)
-        (catch Throwable t
-          (.printStackTrace t)
-          (transact sim-conn [{:db/id (:db/id process)
-                               :process/state :process.state/failed
-                               :process/errorDescription (stack-trace-string t)}])
-          (throw t))
-        (finally
-         (await-all agents)))))
-   (transact sim-conn [[:db/add (:db/id process) :process/state :process.state/completed]])
-   (transact-action-logs sim-conn process)
-   (.delete (process-log-file process))))
+   (let [lifecycle (-> process :process/resource-manager lifecycle)
+         resources (setup lifecycle sim-conn process)
+         sim (-> process :sim/_processes only)
+         agents (process-agents process)
+         actions (action-seq (db sim-conn) agents)]
+     (try
+      (feed-all-actions sim actions)
+      (catch Throwable t
+        (.printStackTrace t)
+        (transact sim-conn [{:db/id (:db/id process)
+                             :process/state :process.state/failed
+                             :process/errorDescription (stack-trace-string t)}])
+        (throw t))
+      (finally
+       (await-all agents)))
+     (teardown lifecycle sim-conn process resources)
+     (transact sim-conn [[:db/add (:db/id process) :process/state :process.state/completed]]))))
 
 (defn run-sim-process
   "Backgrounds process loop and returns process object. Returns map
@@ -288,25 +244,5 @@
     (println "Joined sim " sim-id " as process " (:db/id process))
     (println "Unable to join sim " sim-id)))
 
-;; queries ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-(defn action-time
-  [action]
-  (- (getx action :log/actionEnd)
-     (getx action :log/actionStart)))
-
-(defn action-log-entries
-  "Find the action entries for a sim, scoped to given action-types"
-  [db sim & action-types]
-  (qes '[:find ?e
-         :in $ ?sim [?action-type ...]
-         :where
-         [?sim :sim/processes ?process]
-         [?e :log/process ?process]
-         [?e :log/action ?action]
-         [?action :action/type ?action-type]]
-       db
-       (e sim)
-       action-types))
 
 

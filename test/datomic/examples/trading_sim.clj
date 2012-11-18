@@ -80,7 +80,7 @@
          :trader/id (:db/id agent)
          :trader/initialBalance (getx model :model/initialBalance)})
       (:test/agents test)))
-    (-> @(transact sim-conn (sim/generate-sim test sim))
+    (-> @(transact sim-conn (sim/construct-basic-sim test sim))
         (tx-ent (:db/id sim)))))
 
 (defmethod sim/perform-action :action.type/trade
