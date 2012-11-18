@@ -139,3 +139,11 @@
      (catch Throwable t#
        (.printStackTrace t#)
        (throw t#)))))
+
+(defn stack-trace-string
+  [^Throwable t]
+  (let [s (java.io.StringWriter.)
+        ps (java.io.PrintWriter. s)]
+    (.printStackTrace t ps)
+    (str s)))
+

@@ -84,8 +84,9 @@
         (tx-ent (:db/id sim)))))
 
 (defmethod sim/perform-action :action.type/trade
-  [action sim]
-  (let [trade-conn (connect (:sim/systemURI sim))
+  [action process]
+  (let [sim (-> process :sim/_processes only)
+        trade-conn (connect (:sim/systemURI sim))
         trade-db (db trade-conn)
         amount (:transfer/amount action)
         from (find-by trade-db :trader/id (-> action :transfer/from :db/id))

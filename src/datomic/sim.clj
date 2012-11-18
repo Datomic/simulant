@@ -20,7 +20,7 @@
 
 (defmulti perform-action
   "Perform an action."
-  (fn [action sim] (getx action :action/type)))
+  (fn [action process] (getx action :action/type)))
 
 (defmulti lifecycle
   "Return Lifecycle protocol implementation associcated with
@@ -30,6 +30,13 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; resource management lifecycle
 
+(def resources-ref (atom nil))
+
+(defn resources
+  "Return the resources associated with this process"
+  [process]
+  (get @resources-ref (getx process :db/id)))
+
 (defprotocol Lifecycle
   (setup [_ conn entity] "Returns resources map which will be available to teardown.")
   (teardown [_ conn entity resources]))
@@ -37,8 +44,8 @@
 (defmethod lifecycle :default
   [entity]
   (reify Lifecycle
-         (setup [this conn entity] (println "Setup for " entity))
-         (teardown [this conn entity resources] (println "Teardown for " entity))))
+         (setup [this conn entity])
+         (teardown [this conn entity resources])))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; helper fns
@@ -175,31 +182,25 @@
 
 (defn feed-action
   "Feed a single action to the actor's agent."
-  [action sim]
+  [action process]
   (let [actor (-> (getx action :agent/_actions) only)]
     (send-via
      @process-executor
      (via-agent-for actor)
      (fn [agent-state]
        
-       (perform-action action sim)
+       (perform-action action process)
        
        agent-state))))
 
 (defn feed-all-actions
   "Feed all actions, which should be sorted by ascending :action/atTime"
-  [sim actions]
-  (let [clock (getx sim :sim/clock)]
+  [process actions]
+  (let [sim (-> process :sim/_processes only)
+        clock (getx sim :sim/clock)]
     (doseq [{elapsed :action/atTime :as action} actions]
       (sleep-until clock elapsed)
-      (feed-action action sim))))
-
-(defn stack-trace-string
-  [^Throwable t]
-  (let [s (java.io.StringWriter.)
-        ps (java.io.PrintWriter. s)]
-    (.printStackTrace t ps)
-    (str s)))
+      (feed-action action process))))
 
 (defn await-all
   "Given a collection of objects, calls await on the agent for each one"
@@ -212,11 +213,11 @@
   (logged-future
    (let [lifecycle (-> process :process/resource-manager lifecycle)
          resources (setup lifecycle sim-conn process)
-         sim (-> process :sim/_processes only)
          agents (process-agents process)
          actions (action-seq (db sim-conn) agents)]
+     (swap! resources-ref assoc (:db/id process) resources)
      (try
-      (feed-all-actions sim actions)
+      (feed-all-actions process actions)
       (catch Throwable t
         (.printStackTrace t)
         (transact sim-conn [{:db/id (:db/id process)
@@ -224,7 +225,8 @@
                              :process/errorDescription (stack-trace-string t)}])
         (throw t))
       (finally
-       (await-all agents)))
+       (await-all agents)
+       (swap! resources-ref dissoc (:db/id process))))
      (teardown lifecycle sim-conn process resources)
      (transact sim-conn [[:db/add (:db/id process) :process/state :process.state/completed]]))))
 
