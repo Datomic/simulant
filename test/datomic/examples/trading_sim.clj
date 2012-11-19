@@ -2,7 +2,7 @@
   (:use datomic.api datomic.sim.util)
   (:require
    [clojure.java.io :as io]
-   [clojure.test.generative.generators :as gen]
+   [clojure.data.generators :as gen]
    [datomic.sim :as sim]
    [datomic.examples.trading :as trading]))
 
