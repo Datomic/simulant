@@ -3,6 +3,7 @@
   (:require [clojure.set :as set]))
 
 (defn require-keys
+  "Throw an exception unless the map m contains all keys named in ks"
   [m & ks]
   (let [missing (set/difference (apply hash-set ks)
                                 (apply hash-set (keys m)))]
@@ -49,8 +50,15 @@
     result
     (assert false)))
 
-(def ssolo (comp solo solo))
-(def oonly (comp only only))
+(defn ssolo
+  "Same as (solo (solo coll))"
+  [coll]
+  (solo (solo coll)))
+
+(defn oonly
+  "Same as (only (only coll))"
+  [coll]
+  (only (only coll)))
 
 (defn qe
   "Returns the single entity returned by a query."
@@ -90,11 +98,13 @@
        :ok)))
 
 (defn tx-ent
+  "Resolve entity id to entity as of the :db-after value of a tx result"
   [txresult eid]
   (let [{:keys [db-after tempids]} txresult]
     (entity db-after (resolve-tempid db-after tempids eid))))
 
 (defn tx-entids
+  "Resolve entity ids to entities as of the :db-after value of a tx result"
   [txresult eids]
   (let [{:keys [db-after tempids]} txresult]
     (->> eids
@@ -102,6 +112,7 @@
          sort)))
 
 (defn count-by
+  "Count the number of entities possessing attribute attr"
   [db attr]
   (->> (q '[:find (count ?e)
               :in $ ?attr
@@ -110,7 +121,8 @@
        ffirst))
 
 (defprotocol Eid
-  (e [_]))
+  "A simple protocol for retrieving an object's id."
+  (e [_] "identifying id for a value"))
 
 (extend-protocol Eid
   java.lang.Long
@@ -122,9 +134,12 @@
   java.util.Map
   (e [ent] (:db/id ent)))
 
-(defn hours->msec ^long [h] (long (* h 60 60 1000)))
+(defn hours->msec
+  "Convert hours to milliseconds (as a long)"
+  ^long [h] (long (* h 60 60 1000)))
 
-(defn safe-read-string 
+(defn safe-read-string
+  "Read a string without evaluating its contents"
   [str]
   (binding [*read-eval* false]
     (when (pos? (count str))
@@ -141,6 +156,7 @@
        (throw t#)))))
 
 (defn stack-trace-string
+  "String containing the stack trace of a Throwable t"
   [^Throwable t]
   (let [s (java.io.StringWriter.)
         ps (java.io.PrintWriter. s)]
