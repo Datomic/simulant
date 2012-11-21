@@ -1,6 +1,7 @@
 (ns datomic.sim.util
   (:use datomic.api)
-  (:require [clojure.set :as set]))
+  (:require [clojure.set :as set]
+            [clojure.java.io :as io]))
 
 (defn require-keys
   "Throw an exception unless the map m contains all keys named in ks"
@@ -163,3 +164,33 @@
     (.printStackTrace t ps)
     (str s)))
 
+;; Git helpers & friends
+
+(defn- ^java.io.Reader exec-stream
+  [^String cmd]
+  (-> (Runtime/getRuntime)
+      (.exec cmd)
+      .getInputStream
+      io/reader))
+
+(defn git-repo-uri
+  "Returns git origin repo uri"
+  []
+  (with-open [s (exec-stream (str "git remote show -n origin"))]
+    (let [es (line-seq s)
+          ^String line (second es)
+          uri (subs line (inc (.lastIndexOf line " ")))]
+      uri)))
+
+(defn git-latest-sha
+  "Returns the most recent SHA of HEAD (excluding un-committed changes.)"
+  []
+  (with-open [s (exec-stream (str "git rev-parse HEAD"))] (first (line-seq s))))
+
+(defn gen-codebase
+  "Generate a codebase entity representing the current codebase"
+  []
+  {:db/id (tempid :db.part/user)
+   :repo/type :repo.type/git
+   :git/uri (git-repo-uri)
+   :git/sha (git-latest-sha)})
