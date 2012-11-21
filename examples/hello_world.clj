@@ -40,6 +40,14 @@
                                                         :sim/systemURI (str "datomic:mem://" (squuid))
                                                       :sim/processCount 10}))
 
+(defn assoc-codebase-tx [entities]
+  (let [codebase (gen-codebase)
+        cid (:db/id codebase)]
+    (cons
+     codebase
+     (mapv #(assoc {:db/id (:db/id %)} :source/codebase cid) entities))))
+(transact sim-conn (assoc-codebase-tx [trading-test trading-sim]))
+
 ;; clock for this sim
 (def sim-clock (sim/create-fixed-clock sim-conn trading-sim {:clock/multiplier 480}))
 
@@ -107,7 +115,3 @@
 ;; sim written in hopes that balances will not go negative
 ;; but they might, because system under test does not check!
 (filter neg? trader-balances)
-
-
-
-
