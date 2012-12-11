@@ -1,6 +1,7 @@
 (ns datomic.sim
-  (:use datomic.api datomic.sim.util)
-  (:require [clojure.java.io :as io])
+  (:use datomic.sim.util)
+  (:require [clojure.java.io :as io]
+            [datomic.api :as d])
   (:import [java.util.concurrent Executors]))
 
 (set! *warn-on-reflection* true)
@@ -105,10 +106,10 @@
   [conn sim process]
   (let [id (getx process :db/id)
         ptype (keyword "process.type" (name (:sim/type sim)))]
-    (-> @(transact conn [[:sim/join (e sim) (assoc process
-                                              :process/type ptype
-                                              :process/state :process.state/running
-                                              :process/uuid (squuid))]])
+    (-> @(d/transact conn [[:sim/join (e sim) (assoc process
+                                                :process/type ptype
+                                                :process/state :process.state/running
+                                                :process/uuid (d/squuid))]])
         (tx-ent id))))
 
 (defmethod process-agents :default
@@ -126,16 +127,16 @@
   (let [agent-ids (->> agents
                        (map :db/id)
                        (into #{}))]
-    (->> (datoms db :avet :action/atTime)
-         (map (fn [datom] (entity db (:e datom))))
+    (->> (d/datoms db :avet :action/atTime)
+         (map (fn [datom] (d/entity db (:e datom))))
          (filter (fn [action] (contains? agent-ids (-> action :agent/_actions only :db/id)))))))
 
 ;; sim time (fixed clock) ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defmethod start-clock :clock.type/fixed
   [conn clock]
   (let [t (System/currentTimeMillis)
-        {:keys [db-after]} @(transact conn [[:deliver (e clock) :clock/realStart t]])]
-    (entity db-after (e clock))))
+        {:keys [db-after]} @(d/transact conn [[:deliver (e clock) :clock/realStart t]])]
+    (d/entity db-after (e clock))))
 
 (defmethod clock-elapsed-time :clock.type/fixed
   [clock]
@@ -162,8 +163,8 @@
 (defn create-fixed-clock
   "Returns clock. Clock passed in must have :clock/multiplier"
   [conn sim clock]
-  (let [id (get clock :db/id (tempid :sim))]
-    (-> @(transact conn (construct-fixed-clock sim (assoc clock :db/id id)))
+  (let [id (get clock :db/id (d/tempid :sim))]
+    (-> @(d/transact conn (construct-fixed-clock sim (assoc clock :db/id id)))
         (tx-ent id))))
 
 ;; sim runner ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -214,29 +215,29 @@
    (let [lifecycle (-> process :process/resource-manager lifecycle)
          resources (setup lifecycle sim-conn process)
          agents (process-agents process)
-         actions (action-seq (db sim-conn) agents)]
+         actions (action-seq (d/db sim-conn) agents)]
      (swap! resources-ref assoc (:db/id process) resources)
      (try
       (feed-all-actions process actions)
       (catch Throwable t
         (.printStackTrace t)
-        (transact sim-conn [{:db/id (:db/id process)
-                             :process/state :process.state/failed
-                             :process/errorDescription (stack-trace-string t)}])
+        (d/transact sim-conn [{:db/id (:db/id process)
+                               :process/state :process.state/failed
+                               :process/errorDescription (stack-trace-string t)}])
         (throw t))
       (finally
        (await-all agents)
        (swap! resources-ref dissoc (:db/id process))))
      (teardown lifecycle sim-conn process resources)
-     (transact sim-conn [[:db/add (:db/id process) :process/state :process.state/completed]]))))
+     (d/transact sim-conn [[:db/add (:db/id process) :process/state :process.state/completed]]))))
 
 (defn run-sim-process
   "Backgrounds process loop and returns process object. Returns map
    with keys :process and :runner (a future), or nil if unable to run sim"
   [sim-uri sim-id]
-  (let [sim-conn (connect sim-uri)
-        sim (entity (db sim-conn) sim-id)]
-    (when-let [process (start-sim sim-conn sim {:db/id (tempid :sim)})]
+  (let [sim-conn (d/connect sim-uri)
+        sim (d/entity (d/db sim-conn) sim-id)]
+    (when-let [process (start-sim sim-conn sim {:db/id (d/tempid :sim)})]
       (let [fut (process-loop sim-conn process)]
         {:process process :runner fut}))))
 

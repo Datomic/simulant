@@ -7,13 +7,7 @@
     :db/ident :test}
    {:db.install/_partition :db.part/db,
     :db/id #db/id[:db.part/db],
-    :db/ident :sim}
-   {:db.install/_partition :db.part/db,
-    :db/id #db/id[:db.part/db],
-    :db/ident :process}
-   {:db.install/_partition :db.part/db,
-    :db/id #db/id[:db.part/db],
-    :db/ident :log}]]
+    :db/ident :sim}]]
 
  :clock
  [[{:db/id #db/id[:db.part/db]

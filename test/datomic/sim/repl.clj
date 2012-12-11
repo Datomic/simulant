@@ -24,7 +24,6 @@
   (in-ns 'user)
   (set! *warn-on-reflection* true)
   (set! *print-length* 20)
-  (use '[datomic.api :as d])
   (use 'datomic.math)
   (use 'datomic.sim.util)
   (require
@@ -33,4 +32,5 @@
    '[clojure.set :as set]
    '[clojure.data.generators :as gen]
    '[clojure.pprint :as pprint]
-   '[datomic.sim :as sim]))
+   '[datomic.sim :as sim]
+   '[datomic.api :as d]))

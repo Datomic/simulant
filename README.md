@@ -3,6 +3,10 @@
 Datomic-sim is a library and schema for developing simulation-based
 tests.
 
+## Docs ##
+
+See the [wiki](https://github.com/Datomic/datomic-sim/wiki).
+
 ## Getting Started ##
 
 Work through examples/hello_world.clj at a REPL.

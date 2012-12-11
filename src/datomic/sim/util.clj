@@ -1,6 +1,6 @@
 (ns datomic.sim.util
-  (:use datomic.api)
-  (:require [clojure.set :as set]))
+  (:require [clojure.set :as set]
+            [datomic.api :as d]))
 
 (defn require-keys
   "Throw an exception unless the map m contains all keys named in ks"
@@ -63,7 +63,7 @@
 (defn qe
   "Returns the single entity returned by a query."
   [query db & args]
-  (when->> (apply q query db args) ssolo (entity db)))
+  (when->> (apply d/q query db args) ssolo (d/entity db)))
 
 (defn find-by
   "Returns the unique entity identified by attr and val."
@@ -77,9 +77,9 @@
   "Returns the entities returned by a query, assuming that
    all :find results are entity ids."
   [query db & args]
-  (->> (apply q query db args)
+  (->> (apply d/q query db args)
        (mapv (fn [items]
-               (mapv (partial entity db) items)))))
+               (mapv (partial d/entity db) items)))))
 
 (defn find-all-by
   "Returns all entities possessing attr."
@@ -94,27 +94,27 @@
   ([conn txes] (transact-batch conn txes 100))
   ([conn txes batch-size]
      (doseq [batch (partition-all batch-size txes)]
-       @(transact-async conn (mapcat identity batch))
+       @(d/transact-async conn (mapcat identity batch))
        :ok)))
 
 (defn tx-ent
   "Resolve entity id to entity as of the :db-after value of a tx result"
   [txresult eid]
   (let [{:keys [db-after tempids]} txresult]
-    (entity db-after (resolve-tempid db-after tempids eid))))
+    (d/entity db-after (d/resolve-tempid db-after tempids eid))))
 
 (defn tx-entids
   "Resolve entity ids to entities as of the :db-after value of a tx result"
   [txresult eids]
   (let [{:keys [db-after tempids]} txresult]
     (->> eids
-         (map #(resolve-tempid db-after tempids %))
+         (map #(d/resolve-tempid db-after tempids %))
          sort)))
 
 (defn count-by
   "Count the number of entities possessing attribute attr"
   [db attr]
-  (->> (q '[:find (count ?e)
+  (->> (d/q '[:find (count ?e)
               :in $ ?attr
               :where [?e ?attr]]
             db attr)

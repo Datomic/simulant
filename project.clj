@@ -2,5 +2,5 @@
   :description "Simulation testing with Datomic"
   :dependencies [[org.clojure/clojure "1.5.0-beta1"]
                  [org.clojure/test.generative "0.3.0"]
-                 [com.datomic/datomic-free "0.8.3595"
+                 [com.datomic/datomic-free "0.8.3646"
                   :exclusions [org.clojure/clojure]]])
