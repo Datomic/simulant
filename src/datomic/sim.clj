@@ -1,3 +1,13 @@
+;; ## Simulation Testing
+;;
+;; ## Coding Style
+;;
+;; 1. Functions prefixed 'create-' perform transactions.
+;; 2. Functions prefixed 'generate-' make data.
+;; 3. Use multimethods, not types, for polymorphism. This lets
+;;    programs work directly with database data, with no
+;;    data-object translation.
+
 (ns datomic.sim
   (:use datomic.sim.util)
   (:require [clojure.java.io :as io]
@@ -6,8 +16,9 @@
 
 (set! *warn-on-reflection* true)
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; methods commonly used to implement a sim 
+;; ## Core Methods
+;;
+;; Specialize these multimethods when creating a sim
 
 (defmulti create-test
   "Execute a series of transactions agaist conn that create a
@@ -28,8 +39,9 @@
    entity. Defaults to no-op."
   (fn [entity] (get entity :lifecycle/type)))
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; resource management lifecycle
+;; ## Resource Lifecycle
+;;
+;; Ignore this, likely to be removed
 
 (def resources-ref (atom nil))
 
@@ -48,8 +60,7 @@
          (setup [this conn entity])
          (teardown [this conn entity resources])))
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; helper fns
+;; ## Helper Functiona
 
 (defn construct-basic-sim
   "Construct a basic sim that assigns agents round-robin to
@@ -60,11 +71,13 @@
      :sim/type :sim.type/basic
      :test/_sims (e test))])
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; methods implemented only in special circumstances
+;; ## Infrequently Overridden
+;;
+;; Many simes can use built-in implementation of these.
 
 (defmulti join-sim
-  "Returns a process entity or nil if could not join."
+  "Returns a process entity or nil if could not join. Override
+   this if you want to allocate processes to a sim asymmetrically."
   (fn [conn sim process] (getx sim :sim/type)))
 
 (defmulti process-agents
@@ -84,12 +97,16 @@
   "Return the elapsed simulation time, in msec"
   (fn [clock] (getx clock :clock/type)))
 
-;; processes ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-(def default-executor
+;; ## Processes
+(def ^:private default-executor
+     "Default executor used by sim agents. This is important because
+      Clojure's send executor would not allow enough concurrency,
+      and the send-off executor would create too many threads."
   (delay
    (Executors/newFixedThreadPool 50)))
 
-(def process-executor
+(def ^:private process-executor
+     "Executor currently in use by sim."
   (atom nil))
 
 (defn start-sim
@@ -112,6 +129,9 @@
                                                 :process/uuid (d/squuid))]])
         (tx-ent id))))
 
+;; The default implementation of process-agents assumes that all
+;; processes in the sim should have agents allocated round-robin
+;; across them.  
 (defmethod process-agents :default
   [process]
   (let [sim (-> process :sim/_processes only)
@@ -123,6 +143,10 @@
          (keep-partition ord nprocs))))
 
 (defn action-seq
+  "Create a lazy sequence of actions for agents, which should be
+    the subset of agents that this process represents. The use of
+    the datoms API instead of query is important, as the number
+    of actions could be huge."
   [db agents]
   (let [agent-ids (->> agents
                        (map :db/id)
@@ -131,7 +155,8 @@
          (map (fn [datom] (d/entity db (:e datom))))
          (filter (fn [action] (contains? agent-ids (-> action :agent/_actions only :db/id)))))))
 
-;; sim time (fixed clock) ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; ## Fixed Clock
+
 (defmethod start-clock :clock.type/fixed
   [conn clock]
   (let [t (System/currentTimeMillis)
@@ -167,17 +192,23 @@
     (-> @(d/transact conn (construct-fixed-clock sim (assoc clock :db/id id)))
         (tx-ent id))))
 
-;; sim runner ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-(defn handle-action-error
+;; ## Process Runner
+(defn report-agent-error
+  "What to do locally when an agent's action barfs an exception.
+   This is likely only to be useful during development, with a human
+   watching at the REPL. In a distributed run of a sim, the error
+   will be detectable "
   [sim-agent agent ^Throwable error]
   (.printStackTrace error))
 
 (def ^:private via-agent-for
+     "Cache of one Clojure agent per sim agent. One could almost
+      imagine that this is what Clojure agents were designed for."
   (memoize
    (fn [sim-agent]
      (assert sim-agent)
      (let [a (agent nil)]
-       (set-error-handler! a (partial handle-action-error sim-agent))
+       (set-error-handler! a (partial report-agent-error sim-agent))
        (set-error-mode! a :fail)
        a))))
 
@@ -189,13 +220,12 @@
      @process-executor
      (via-agent-for actor)
      (fn [agent-state]
-       
        (perform-action action process)
-       
        agent-state))))
 
 (defn feed-all-actions
-  "Feed all actions, which should be sorted by ascending :action/atTime"
+  "Feed all actions, which are presumed to be sorted by ascending
+   :action/atTime"
   [process actions]
   (let [sim (-> process :sim/_processes only)
         clock (getx sim :sim/clock)]
@@ -209,7 +239,8 @@
   (apply await (map via-agent-for coll)))
 
 (defn process-loop
-  "Returns a future"
+  "Run the control loop for a process. Dispatches all agent actions,
+   and returns a future you can use to wait for the sim to complete."
   [sim-conn process]
   (logged-future
    (let [lifecycle (-> process :process/resource-manager lifecycle)
@@ -231,6 +262,8 @@
      (teardown lifecycle sim-conn process resources)
      (d/transact sim-conn [[:db/add (:db/id process) :process/state :process.state/completed]]))))
 
+;; ## API Entry Points
+
 (defn run-sim-process
   "Backgrounds process loop and returns process object. Returns map
    with keys :process and :runner (a future), or nil if unable to run sim"
@@ -242,6 +275,9 @@
         {:process process :runner fut}))))
 
 (defn -main
+  "Command line entry point for running a sim process. Takes the URI of a
+   simulation database, and the entity id of the sim to be run, both as
+   strings."
   [sim-uri sim-id]
   (if-let [process (run-sim-process sim-uri (safe-read-string sim-id))]
     (println "Joined sim " sim-id " as process " (:db/id process))
