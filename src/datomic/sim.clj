@@ -21,12 +21,12 @@
 ;; Specialize these multimethods when creating a sim
 
 (defmulti create-test
-  "Execute a series of transactions agaist conn that create a
+  "Execute a series of transactions against conn that create a
    test based on model."
   (fn [conn model test] (getx model :model/type)))
 
 (defmulti create-sim
-  "Execute a series of transactions agaist conn that create a
+  "Execute a series of transactions against conn that create a
    sim based on test."
   (fn [conn test sim] (getx test :test/type)))
 
@@ -35,7 +35,7 @@
   (fn [action process] (getx action :action/type)))
 
 (defmulti lifecycle
-  "Return Lifecycle protocol implementation associcated with
+  "Return Lifecycle protocol implementation associated with
    entity. Defaults to no-op."
   (fn [entity] (get entity :lifecycle/type)))
 
@@ -60,7 +60,7 @@
          (setup [this conn entity])
          (teardown [this conn entity resources])))
 
-;; ## Helper Functiona
+;; ## Helper Functions
 
 (defn construct-basic-sim
   "Construct a basic sim that assigns agents round-robin to
@@ -73,7 +73,7 @@
 
 ;; ## Infrequently Overridden
 ;;
-;; Many simes can use built-in implementation of these.
+;; Many sims can use built-in implementation of these.
 
 (defmulti join-sim
   "Returns a process entity or nil if could not join. Override

@@ -9,9 +9,11 @@ See the [wiki](https://github.com/Datomic/datomic-sim/wiki).
 
 ## Getting Started ##
 
+Datomic-sim requires leiningen 2.
+
 Work through examples/hello_world.clj at a REPL.
 
-## License ## 
+## License ##
 
     Copyright (c) Metadata Partners, LLC. All rights reserved. The use
     and distribution terms for this software are covered by the

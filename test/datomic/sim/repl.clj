@@ -3,7 +3,7 @@
             [clojure.java.io :as io]))
 
 (defn reset-conn
-  "Reset connection to a scratch database. Used memory database if no
+  "Reset connection to a scratch database. Use memory database if no
    URL passed in."
   ([]
      (reset-conn (str "datomic:mem://" (d/squuid))))
