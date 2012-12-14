@@ -60,7 +60,7 @@
          (setup [this conn entity])
          (teardown [this conn entity resources])))
 
-;; ## Helper Functiona
+;; ## Helper Functions
 
 (defn construct-basic-sim
   "Construct a basic sim that assigns agents round-robin to
@@ -73,7 +73,7 @@
 
 ;; ## Infrequently Overridden
 ;;
-;; Many simes can use built-in implementation of these.
+;; Many sims can use built-in implementation of these.
 
 (defmulti join-sim
   "Returns a process entity or nil if could not join. Override
