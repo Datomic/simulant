@@ -21,12 +21,12 @@
 ;; Specialize these multimethods when creating a sim
 
 (defmulti create-test
-  "Execute a series of transactions agaist conn that create a
+  "Execute a series of transactions against conn that create a
    test based on model."
   (fn [conn model test] (getx model :model/type)))
 
 (defmulti create-sim
-  "Execute a series of transactions agaist conn that create a
+  "Execute a series of transactions against conn that create a
    sim based on test."
   (fn [conn test sim] (getx test :test/type)))
 
@@ -35,7 +35,7 @@
   (fn [action process] (getx action :action/type)))
 
 (defmulti lifecycle
-  "Return Lifecycle protocol implementation associcated with
+  "Return Lifecycle protocol implementation associated with
    entity. Defaults to no-op."
   (fn [entity] (get entity :lifecycle/type)))
 

@@ -3,7 +3,7 @@
             [datomic.api :as d]))
 
 (defn require-keys
-  "Throw an exception unless the map m contains all keys named in ks"
+  "Throws an exception unless the map m contains all keys named in ks"
   [m & ks]
   (let [missing (set/difference (apply hash-set ks)
                                 (apply hash-set (keys m)))]
