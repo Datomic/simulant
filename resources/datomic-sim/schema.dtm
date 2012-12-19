@@ -206,4 +206,32 @@
                         (not (some (fn [[e]] (= e procid)) procs)))
                [[:db/add simid :sim/processes procid]
                 proc
-                [:db/add procid :process/ordinal (count procs)]]))}}]]}
+                [:db/add procid :process/ordinal (count procs)]]))}}]]
+
+ :codebase
+ [[{:db/id #db/id [:db.part/db]
+    :db/ident :source/codebase
+    :db/valueType :db.type/ref
+    :db/doc "Reference to information about the source tree"
+    :db/cardinality :db.cardinality/one
+    :db.install/_attribute :db.part/db}
+   {:db/id #db/id[:db.part/db]
+    :db/ident :repo.type/git}
+   {:db/id #db/id[:db.part/db]
+    :db/ident :repo/type
+    :db/valueType :db.type/ref
+    :db/cardinality :db.cardinality/one
+    :db/doc "Type of repository"
+    :db.install/_attribute :db.part/db}
+   {:db/id #db/id[:db.part/db]
+    :db/ident :git/uri
+    :db/valueType :db.type/string
+    :db/doc "Git repository URI"
+    :db/cardinality :db.cardinality/one
+    :db.install/_attribute :db.part/db}
+   {:db/id #db/id [:db.part/db]
+    :db/ident :git/sha
+    :db/valueType :db.type/string
+    :db/doc "SHA ref for current git HEAD"
+    :db/cardinality :db.cardinality/one
+    :db.install/_attribute :db.part/db}]]}
