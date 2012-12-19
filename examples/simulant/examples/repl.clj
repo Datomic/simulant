@@ -1,4 +1,4 @@
-(ns datomic.sim.repl
+(ns simulant.examples.repl
   (:require [datomic.api :as d]
             [clojure.java.io :as io]))
 

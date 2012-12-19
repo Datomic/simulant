@@ -1,4 +1,4 @@
-(use 'datomic.sim.repl)
+(use 'simulant.examples.repl)
 (convenient)
 (use 'datomic.examples.trading-sim)
 (require '[datomic.examples.trading :as trading])
