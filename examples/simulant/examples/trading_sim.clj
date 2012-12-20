@@ -1,11 +1,19 @@
-(ns datomic.examples.trading-sim
-  (:use datomic.sim.util)
+;;   Copyright (c) Metadata Partners, LLC. All rights reserved.
+;;   The use and distribution terms for this software are covered by the
+;;   Eclipse Public License 1.0 (http://opensource.org/licenses/eclipse-1.0.php)
+;;   which can be found in the file epl-v10.html at the root of this distribution.
+;;   By using this software in any fashion, you are agreeing to be bound by
+;;   the terms of this license.
+;;   You must not remove this notice, or any other, from this software.
+
+(ns simulant.examples.trading-sim
+  (:use simulant.util)
   (:require
    [clojure.java.io :as io]
    [clojure.data.generators :as gen]
    [datomic.api :as d]
-   [datomic.sim :as sim]
-   [datomic.examples.trading :as trading]))
+   [simulant.sim :as sim]
+   [simulant.examples.trading :as trading]))
 
 (defn create-test
   "Returns test entity"
@@ -66,7 +74,7 @@
 (defmethod sim/create-sim :test.type/trading
   [sim-conn test sim]
   (let [model (-> test :model/_tests solo)
-        schema (-> "datomic-sim/trading.dtm" io/resource slurp read-string)
+        schema (-> "simulant/examples/trading.edn" io/resource slurp read-string)
         uri (doto (getx sim :sim/systemURI)
               (d/create-database))
         trading-conn (d/connect uri)]

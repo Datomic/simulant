@@ -1,3 +1,11 @@
+;;   Copyright (c) Metadata Partners, LLC. All rights reserved.
+;;   The use and distribution terms for this software are covered by the
+;;   Eclipse Public License 1.0 (http://opensource.org/licenses/eclipse-1.0.php)
+;;   which can be found in the file epl-v10.html at the root of this distribution.
+;;   By using this software in any fashion, you are agreeing to be bound by
+;;   the terms of this license.
+;;   You must not remove this notice, or any other, from this software.
+
 (ns simulant.examples.repl
   (:require [datomic.api :as d]
             [clojure.java.io :as io]))
@@ -25,12 +33,12 @@
   (set! *warn-on-reflection* true)
   (set! *print-length* 20)
   (use 'datomic.math)
-  (use 'datomic.sim.util)
+  (use 'simulant.util)
   (require
    '[clojure.string :as str]
    '[clojure.java.io :as io]
    '[clojure.set :as set]
    '[clojure.data.generators :as gen]
    '[clojure.pprint :as pprint]
-   '[datomic.sim :as sim]
+   '[simulant.sim :as sim]
    '[datomic.api :as d]))

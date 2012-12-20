@@ -1,20 +1,28 @@
+;;   Copyright (c) Metadata Partners, LLC. All rights reserved.
+;;   The use and distribution terms for this software are covered by the
+;;   Eclipse Public License 1.0 (http://opensource.org/licenses/eclipse-1.0.php)
+;;   which can be found in the file epl-v10.html at the root of this distribution.
+;;   By using this software in any fashion, you are agreeing to be bound by
+;;   the terms of this license.
+;;   You must not remove this notice, or any other, from this software.
+
 (use 'simulant.examples.repl)
 (convenient)
-(use 'datomic.examples.trading-sim)
-(require '[datomic.examples.trading :as trading])
+(use 'simulant.examples.trading-sim)
+(require '[simulant.examples.trading :as trading])
 
 (def sim-uri (str "datomic:mem://" (d/squuid)))
 
 (def sim-conn (reset-conn sim-uri))
 
 ;; generic simulation schema
-(load-schema sim-conn "datomic-sim/schema.dtm")
+(load-schema sim-conn "simulant/schema.edn")
 
 ;; schema for this specific sim
-(load-schema sim-conn "datomic-sim/trading-sim.dtm")
+(load-schema sim-conn "simulant/examples/trading-sim.edn")
 
 ;; schema for system under test (reused by sim)
-(load-schema sim-conn "datomic-sim/trading.dtm")
+(load-schema sim-conn "simulant/examples/trading.edn")
 
 ;; model for this sim
 (def model-id (d/tempid :model))

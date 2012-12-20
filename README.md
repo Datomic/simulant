@@ -1,15 +1,15 @@
-## datomic-sim ##
+## Simulant ##
 
-Datomic-sim is a library and schema for developing simulation-based
+Simulant is a library and schema for developing simulation-based
 tests.
 
 ## Docs ##
 
-See the [wiki](https://github.com/Datomic/datomic-sim/wiki).
+See the [wiki](https://github.com/Datomic/simulant/wiki).
 
 ## Getting Started ##
 
-Datomic-sim requires leiningen 2.
+Simulant requires leiningen 2.
 
 Work through examples/hello_world.clj at a REPL.
 
