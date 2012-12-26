@@ -48,6 +48,7 @@
                                                         :sim/systemURI (str "datomic:mem://" (d/squuid))
                                                         :sim/processCount 10}))
 
+;; codebase for the sim
 (defn assoc-codebase-tx [entities]
   (let [codebase (gen-codebase)
         cid (:db/id codebase)]
@@ -56,8 +57,12 @@
      (mapv #(assoc {:db/id (:db/id %)} :source/codebase cid) entities))))
 (d/transact sim-conn (assoc-codebase-tx [trading-test trading-sim]))
 
+;; action log for this sim
+(def action-log
+  (sim/create-action-log sim-conn trading-sim))
+
 ;; clock for this sim
-(def sim-clock (sim/create-fixed-clock sim-conn trading-sim {:clock/multiplier 480}))
+(def sim-clock (sim/create-fixed-clock sim-conn trading-sim {:clock/multiplier 960}))
 
 ;; run the processes for this sim
 ;; at scale each process would have its own box
@@ -119,8 +124,44 @@
   (->> trader-ids
        (map (fn [[e]] (:db/id e)))
        (map (partial trading/balance traderdb))))
-(apply + trader-balances)
+(assert (= 100000 (apply + trader-balances)))
 
 ;; sim written in hopes that balances will not go negative
 ;; but they might, because system under test does not check!
 (filter neg? trader-balances)
+
+;; test nonfunctional requirements, e.g. some metric on trade times
+(def rules
+  '[[[actionTime ?sim ?actionType ?action ?nsec]
+     [?test :test/sims ?sim]
+     [?test :test/agents ?agent]
+     [?agent :agent/actions ?action]
+     [?action :action/type ?actionType]
+     [?log :actionLog/action ?action]
+     [?log :actionLog/sim ?sim]
+     [?log :actionLog/nsec ?nsec]]])
+
+;; count of trade times should match count of trades
+(assert (= (count actions)
+           (count (d/q '[:find ?nsec
+                         :with ?action
+                         :in $ % ?sim ?action-type
+                         :where (actionTime ?sim ?action-type ?action ?nsec)]
+                       simdb rules (:db/id trading-sim) :action.type/trade))))
+
+(def mean-trade-time-msec
+  (-> (d/q '[:find (avg ?nsec)
+             :with ?action
+             :in $ % ?sim ?action-type
+             :where (actionTime ?sim ?action-type ?action ?nsec)]
+           simdb rules (:db/id trading-sim) :action.type/trade)
+      ffirst
+      (/ 1000 1000)))
+
+;; This could make much more sophisticated use of statistics.
+;; And, because the work is against a database, not a live
+;; test, increased sophistication could be brought to bear
+;; at any time.
+(assert (< mean-trade-time-msec 2))
+
+

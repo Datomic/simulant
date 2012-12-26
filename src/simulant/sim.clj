@@ -20,7 +20,9 @@
   (:use simulant.util)
   (:require [clojure.java.io :as io]
             [datomic.api :as d])
-  (:import [java.util.concurrent Executors]))
+  (:import
+   [java.io Closeable File PushbackReader]
+   [java.util.concurrent Executors]))
 
 (set! *warn-on-reflection* true)
 
@@ -42,31 +44,96 @@
   "Perform an action."
   (fn [action process] (getx action :action/type)))
 
-(defmulti lifecycle
-  "Return Lifecycle protocol implementation associated with
-   entity. Defaults to no-op."
-  (fn [entity] (get entity :lifecycle/type)))
-
-;; ## Resource Lifecycle
+;; ## Services
 ;;
-;; Ignore this, likely to be removed
+;; Services represent resources needed by a sim run.
 
-(def resources-ref (atom nil))
+(def ^:dynamic *services*
+     "During a sim run, the *services* map contains a mapping
+from fully qualified names to any services that the sim
+need to use.")
 
-(defn resources
-  "Return the resources associated with this process"
+(defn services
+  "Return the service entities associated with this process"
   [process]
-  (get @resources-ref (getx process :db/id)))
+  (reduce into #{}
+          [(-> process :sim/services)
+           (-> process :sim/_processes only :sim/services)]))
 
-(defprotocol Lifecycle
-  (setup [_ conn entity] "Returns resources map which will be available to teardown.")
-  (teardown [_ conn entity resources]))
+(defmulti start-service
+  "Start service, returning an object that will
+be stored in the *services* map, under the
+key specified by :service/key."
+  (fn [conn process service] (getx service :service/type)))
 
-(defmethod lifecycle :default
-  [entity]
-  (reify Lifecycle
-         (setup [this conn entity])
-         (teardown [this conn entity resources])))
+(defmulti finalize-service
+  "Teardown service at the end of a sim run."
+  (fn [conn process service services-map] (getx service :service/type)))
+
+(defn- start-services
+  [conn process]
+  (reduce
+   (fn [m svc]
+     (assoc m (getx svc :service/key) (start-service conn process svc)))
+   {}
+   (services process)))
+
+(defn- finalize-services
+  "Call teardown for each service associate with
+process."
+  [conn process services-map]
+  (doseq [service (services process)]
+    (finalize-service conn process service services-map)))
+
+(defn with-services
+  "Run f inside the service lifecycle for process."
+  [conn process f]
+  (let [services-map (start-services conn process)]
+    (binding [*services* services-map]
+      (try
+       (f)
+       (finally
+        (let [process-after (d/entity (d/db conn) (e process))]
+          (finalize-services conn process-after services-map)))))))
+
+;; ## Action Log
+;;
+;; An Action Log keeps a list of transaction data describing actions
+;; in a temporary file during a sim run, and then transacts that
+;; data into the sim database at the completion of the run.
+;;
+;; ActionLogs implement IFn, and expect to be passed transaction data
+(defrecord ActionLog
+  [^File temp-file writer]
+  clojure.lang.IFn
+  (invoke
+   [_ tx-data]
+   (binding [*out* writer]
+     (pr tx-data))))
+
+(defmethod start-service :service.type/actionLog
+  [conn process service]
+  (let [f (File/createTempFile "actionLog" "edn")
+        writer (io/writer f)]
+    (ActionLog. f writer)))
+
+(defmethod finalize-service :service.type/actionLog
+  [conn process service services-map]
+  (let [{:keys [temp-file writer]} (getx services-map (:service/key service))]
+    (.close ^Closeable writer)
+    (with-open [reader (io/reader temp-file)
+                pbr (PushbackReader. reader)]
+      (transact-batch conn (form-seq pbr)))))
+
+(defn create-action-log
+  "Create an action log service for the sim."
+  [conn sim]
+  (let [id (d/tempid :sim)]
+    (-> @(d/transact conn [{:db/id id
+                            :sim/_services (e sim)
+                            :service/type :service.type/actionLog
+                            :service/key :simulant.sim/actionLog}])
+        (tx-ent id))))
 
 ;; ## Helper Functions
 
@@ -251,24 +318,20 @@
    and returns a future you can use to wait for the sim to complete."
   [sim-conn process]
   (logged-future
-   (let [lifecycle (-> process :process/resource-manager lifecycle)
-         resources (setup lifecycle sim-conn process)
-         agents (process-agents process)
+   (let [agents (process-agents process)
          actions (action-seq (d/db sim-conn) agents)]
-     (swap! resources-ref assoc (:db/id process) resources)
      (try
-      (feed-all-actions process actions)
+      (with-services sim-conn process
+        #(do
+           (feed-all-actions process actions)
+           (await-all agents)
+           (d/transact sim-conn [[:db/add (:db/id process) :process/state :process.state/completed]])))
       (catch Throwable t
         (.printStackTrace t)
         (d/transact sim-conn [{:db/id (:db/id process)
                                :process/state :process.state/failed
                                :process/errorDescription (stack-trace-string t)}])
-        (throw t))
-      (finally
-       (await-all agents)
-       (swap! resources-ref dissoc (:db/id process))))
-     (teardown lifecycle sim-conn process resources)
-     (d/transact sim-conn [[:db/add (:db/id process) :process/state :process.state/completed]]))))
+        (throw t))))))
 
 ;; ## API Entry Points
 

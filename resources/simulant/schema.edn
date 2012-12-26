@@ -15,7 +15,10 @@
     :db/ident :test}
    {:db.install/_partition :db.part/db,
     :db/id #db/id[:db.part/db],
-    :db/ident :sim}]]
+    :db/ident :sim}
+   {:db.install/_partition :db.part/db,
+    :db/id #db/id[:db.part/db],
+    :db/ident :log}]]
 
  :clock
  [[{:db/id #db/id[:db.part/db]
@@ -107,6 +110,28 @@
     :db/cardinality :db.cardinality/many
     :db.install/_attribute :db.part/db}]]
 
+ :actionLog
+ [[{:db/id #db/id[:db.part/db]
+    :db/ident :actionLog/action
+    :db/valueType :db.type/ref
+    :db/doc "Action this log entry is associated with"
+    :db/cardinality :db.cardinality/one
+    :db.install/_attribute :db.part/db}
+   {:db/id #db/id[:db.part/db]
+    :db/ident :actionLog/sim
+    :db/valueType :db.type/ref
+    :db/doc "Sim this log entry is associated with"
+    :db/cardinality :db.cardinality/one
+    :db.install/_attribute :db.part/db}
+   {:db/id #db/id[:db.part/db]
+    :db/ident :actionLog/nsec
+    :db/valueType :db.type/long
+    :db/doc "How long this action took, in nsec"
+    :db/cardinality :db.cardinality/one
+    :db.install/_attribute :db.part/db}
+   {:db/id #db/id [:db.part/db]
+    :db/ident :simulant.sim/actionLog}]]
+ 
  :action
  [[{:db/id #db/id[:db.part/db]
     :db/ident :action/atTime
@@ -144,11 +169,6 @@
     :db/cardinality :db.cardinality/one
     :db.install/_attribute :db.part/db}
    {:db/id #db/id[:db.part/db]
-    :db/ident :process/resource-manager
-    :db/valueType :db.type/ref
-    :db/cardinality :db.cardinality/one
-    :db.install/_attribute :db.part/db}   
-   {:db/id #db/id[:db.part/db]
     :db/ident :process/state
     :db/valueType :db.type/ref
     :db/cardinality :db.cardinality/one
@@ -166,10 +186,35 @@
     :db/unique :db.unique/value
     :db/cardinality :db.cardinality/one
     :db.install/_attribute :db.part/db}]]
+
+ :services
+ [[{:db/id #db/id[:db.part/db]
+    :db/ident :service/type
+    :db/valueType :db.type/ref
+    :db/index true
+    :db/cardinality :db.cardinality/one
+    :db.install/_attribute :db.part/db}
+   {:db/id #db/id[:db.part/db]
+    :db/ident :service/key
+    :db/valueType :db.type/ref
+    :db/index true
+    :db/cardinality :db.cardinality/one
+    :db.install/_attribute :db.part/db}   
+   {:db/id #db/id[:db.part/db]
+    :db/doc "Service that accumulates events during a sim run,
+and then transacts them into the sim database at the
+end of the run."
+    :db/ident :service.type/actionLog}]]
  
  :sim
  [[{:db/id #db/id[:db.part/db]
     :db/ident :sim.type/basic}
+   {:db/id #db/id[:db.part/db]
+    :db/ident :sim/services
+    :db/valueType :db.type/ref
+    :db/cardinality :db.cardinality/many
+    :db/doc "Services used by this sim"
+    :db.install/_attribute :db.part/db}   
    {:db/id #db/id[:db.part/db]
     :db/ident :sim/type
     :db/valueType :db.type/ref

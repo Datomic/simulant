@@ -13,11 +13,11 @@
 (defn trade
   [conn from to amount]
   (let [tx (d/tempid :db.part/tx)]
-    (d/transact
+    (d/transact-async
      conn
      [[:db/add tx :transfer/amount amount]
       [:db/add tx :transfer/from (e from)]
-      [:db/add tx :transfer/to (e to)]]))  )
+      [:db/add tx :transfer/to (e to)]])))
 
 (defn balance
   [db trader-id]

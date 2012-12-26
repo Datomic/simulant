@@ -155,6 +155,13 @@
     (when (pos? (count str))
       (read-string str))))
 
+(defn form-seq
+  "Lazy seq of forms read from a reader"
+  [reader]
+  (let [form (read reader false reader)]
+    (when-not (= form reader)
+      (cons form (lazy-seq (form-seq reader))))))
+
 (defmacro logged-future
   "Future with logging of failure."
   [& body]

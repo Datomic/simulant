@@ -99,7 +99,13 @@
         trade-db (d/db trade-conn)
         amount (:transfer/amount action)
         from (find-by trade-db :trader/id (-> action :transfer/from :db/id))
-        to (find-by trade-db :trader/id (-> action :transfer/to :db/id))]
-    (trading/trade trade-conn from to amount)))
+        to (find-by trade-db :trader/id (-> action :transfer/to :db/id))
+        action-log (getx sim/*services* :simulant.sim/actionLog)
+        before (System/nanoTime)]
+    @(trading/trade trade-conn from to amount)
+    (action-log [{:actionLog/nsec (- (System/nanoTime) before)
+                  :db/id (d/tempid :db.part/user)
+                  :actionLog/sim (e sim)
+                  :actionLog/action (e action)}])))
 
 
