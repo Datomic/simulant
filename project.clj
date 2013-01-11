@@ -1,4 +1,4 @@
-(defproject com.datomic/simulant "0.1.3"
+(defproject com.datomic/simulant "0.1.4-SNAPSHOT"
   :description "Simulation testing with Datomic"
   :source-paths ["src" "examples"]
   :plugins [[lein-marginalia "0.7.1"]]
