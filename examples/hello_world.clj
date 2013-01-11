@@ -162,6 +162,6 @@
 ;; And, because the work is against a database, not a live
 ;; test, increased sophistication could be brought to bear
 ;; at any time.
-(assert (< mean-trade-time-msec 2))
+(assert (< mean-trade-time-msec 20))
 
 

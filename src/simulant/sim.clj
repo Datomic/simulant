@@ -103,13 +103,20 @@ process."
 ;; data into the sim database at the completion of the run.
 ;;
 ;; ActionLogs implement IFn, and expect to be passed transaction data
+(def ^:private serializer (agent nil))
+
 (defrecord ActionLog
   [^File temp-file writer]
   clojure.lang.IFn
   (invoke
    [_ tx-data]
-   (binding [*out* writer]
-     (pr tx-data))))
+   (send-off
+    serializer
+    (fn [_]
+      (binding [*out* writer]
+        (pr tx-data))
+      nil))
+   (await serializer)))
 
 (defmethod start-service :service.type/actionLog
   [conn process service]
