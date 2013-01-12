@@ -29,7 +29,6 @@
 
 (defn convenient
   []
-  (in-ns 'user)
   (set! *warn-on-reflection* true)
   (set! *print-length* 20)
   (use 'datomic.math)

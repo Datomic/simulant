@@ -1,19 +1,26 @@
-## Simulant ##
+## Simulant
 
 Simulant is a library and schema for developing simulation-based
 tests.
 
-## Docs ##
+## Docs
 
 See the [wiki](https://github.com/Datomic/simulant/wiki).
 
-## Getting Started ##
+## Getting Started
 
 Simulant requires leiningen 2.
 
-Work through examples/hello_world.clj at a REPL.
+Work through examples/repl/hello_world.clj at a REPL.
 
-## License ##
+## Running Tests 
+
+From a repl:
+
+    (require :reload '[simulant.examples-test :as et])
+    (et/-main)
+
+## License
 
     Copyright (c) Metadata Partners, LLC. All rights reserved. The use
     and distribution terms for this software are covered by the

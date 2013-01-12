@@ -115,8 +115,7 @@ process."
     (fn [_]
       (binding [*out* writer]
         (pr tx-data))
-      nil))
-   (await serializer)))
+      nil))))
 
 (defmethod start-service :service.type/actionLog
   [conn process service]
@@ -162,6 +161,11 @@ process."
    this if you want to allocate processes to a sim asymmetrically."
   (fn [conn sim process] (getx sim :sim/type)))
 
+(defmulti await-processes-ready
+  "Returns a future that will be realized when all of a sim's
+   processes are ready to begin"
+  (fn [conn sim] (getx sim :sim/type)))
+
 (defmulti process-agents
   "Given a process that has joined a sim, return that process's
    agents"
@@ -198,7 +202,6 @@ process."
      (start-sim conn sim process @default-executor))
   ([conn sim process executor]
      (reset! process-executor executor)
-     (start-clock conn (getx sim :sim/clock))
      (join-sim conn sim process)))
 
 (defmethod join-sim :default
@@ -210,6 +213,18 @@ process."
                                                 :process/state :process.state/running
                                                 :process/uuid (d/squuid))]])
         (tx-ent id))))
+
+(defn await-processes-ready
+  [sim-conn sim]
+  (logged-future
+   (while
+    (<
+     (ffirst (d/q '[:find (count ?procid)
+                    :in $ ?simid
+                    :where [?simid :sim/processes ?procid]]
+                  (d/db sim-conn) (e sim)))
+     (:sim/processCount sim))
+    (Thread/sleep 1000))))
 
 ;; The default implementation of process-agents assumes that all
 ;; processes in the sim should have agents allocated round-robin
@@ -325,8 +340,13 @@ process."
    and returns a future you can use to wait for the sim to complete."
   [sim-conn process]
   (logged-future
-   (let [agents (process-agents process)
-         actions (action-seq (d/db sim-conn) agents)]
+   (let [sim (-> process :sim/_processes only)]
+     @(await-processes-ready sim-conn sim)
+     (start-clock sim-conn (getx sim :sim/clock)))
+   (let [db (d/db sim-conn)
+         process (d/entity db (e process)) ;; reload with clock!
+         agents (process-agents process)
+         actions (action-seq db agents)]
      (try
       (with-services sim-conn process
         #(do
