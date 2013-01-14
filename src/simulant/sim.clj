@@ -166,9 +166,9 @@ process."
    processes are ready to begin"
   (fn [conn sim] (getx sim :sim/type)))
 
-(defmulti process-agents
-  "Given a process that has joined a sim, return that process's
-   agents"
+(defmulti process-agent-ids
+  "Given a process that has joined a sim, return the set of that
+   process's agent ids"
   (fn [process] (getx process :process/type)))
 
 (defmulti start-clock
@@ -226,31 +226,34 @@ process."
      (:sim/processCount sim))
     (Thread/sleep 1000))))
 
-;; The default implementation of process-agents assumes that all
+;; The default implementation of process-agent-ids assumes that all
 ;; processes in the sim should have agents allocated round-robin
 ;; across them.  
-(defmethod process-agents :default
+(defmethod process-agent-ids :default
   [process]
   (let [sim (-> process :sim/_processes only)
         test (-> sim :test/_sims only)
         nprocs (:sim/processCount sim)
         ord (:process/ordinal process)]
-    (->> (:test/agents test)
-         (sort-by :db/id)
-         (keep-partition ord nprocs))))
+    (->> (d/q '[:find ?e
+            :in $ ?test
+            :where
+            [?test :test/agents ?e]]
+          (d/entity-db test) (e test))
+         (map first)
+         sort
+         (keep-partition ord nprocs)
+         (into #{}))))
 
 (defn action-seq
   "Create a lazy sequence of actions for agents, which should be
     the subset of agents that this process represents. The use of
     the datoms API instead of query is important, as the number
     of actions could be huge."
-  [db agents]
-  (let [agent-ids (->> agents
-                       (map :db/id)
-                       (into #{}))]
-    (->> (d/datoms db :avet :action/atTime)
-         (map (fn [datom] (d/entity db (:e datom))))
-         (filter (fn [action] (contains? agent-ids (-> action :agent/_actions only :db/id)))))))
+  [db agent-ids]
+  (->> (d/datoms db :avet :action/atTime)
+       (map (fn [datom] (d/entity db (:e datom))))
+       (filter (fn [action] (contains? agent-ids (-> action :agent/_actions only :db/id))))))
 
 ;; ## Fixed Clock
 
@@ -312,10 +315,10 @@ process."
 (defn feed-action
   "Feed a single action to the actor's agent."
   [action process]
-  (let [actor (-> (getx action :agent/_actions) only)]
+  (let [agent-id (-> (getx action :agent/_actions) only :db/id)]
     (send-via
      @process-executor
-     (via-agent-for actor)
+     (via-agent-for agent-id)
      (fn [agent-state]
        (perform-action action process)
        agent-state))))
@@ -345,13 +348,12 @@ process."
      (start-clock sim-conn (getx sim :sim/clock)))
    (let [db (d/db sim-conn)
          process (d/entity db (e process)) ;; reload with clock!
-         agents (process-agents process)
-         actions (action-seq db agents)]
+         agent-ids (process-agent-ids process)]
      (try
       (with-services sim-conn process
         #(do
-           (feed-all-actions process actions)
-           (await-all agents)
+           (feed-all-actions process (action-seq db agent-ids))
+           (await-all agent-ids)
            (d/transact sim-conn [[:db/add (:db/id process) :process/state :process.state/completed]])))
       (catch Throwable t
         (.printStackTrace t)
