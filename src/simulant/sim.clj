@@ -125,6 +125,8 @@ process."
 
 (defmethod finalize-service :service.type/actionLog
   [conn process service services-map]
+  (send-off serializer identity)
+  (await serializer)
   (let [{:keys [temp-file writer]} (getx services-map (:service/key service))]
     (.close ^Closeable writer)
     (with-open [reader (io/reader temp-file)
