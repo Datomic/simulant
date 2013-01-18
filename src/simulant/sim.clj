@@ -314,12 +314,17 @@ process."
        (set-error-mode! a :fail)
        a))))
 
+(def simulant-send
+  "Use send-via where available, fall back to send."
+  (if-let [via (resolve 'clojure.core/send-via)]
+    (fn [& args] (apply @via @process-executor args))
+    send))
+
 (defn feed-action
   "Feed a single action to the actor's agent."
   [action process]
   (let [agent-id (-> (getx action :agent/_actions) only :db/id)]
-    (send-via
-     @process-executor
+    (simulant-send
      (via-agent-for agent-id)
      (fn [agent-state]
        (perform-action action process)

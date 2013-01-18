@@ -73,7 +73,8 @@
 (defn qe
   "Returns the single entity returned by a query."
   [query db & args]
-  (some->> (apply d/q query db args) ssolo (d/entity db)))
+  (when-let [result (-> (apply d/q query db args) ssolo)]
+    (d/entity db result)))
 
 (defn find-by
   "Returns the unique entity identified by attr and val."
