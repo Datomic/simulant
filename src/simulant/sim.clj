@@ -182,8 +182,19 @@ process."
   (fn [clock elapsed] (getx clock :clock/type)))
 
 (defmulti clock-elapsed-time
-  "Return the elapsed simulation time, in msec"
+  "Return the elapsed simulation time, in msec, or nil
+   if clock has not started"
   (fn [clock] (getx clock :clock/type)))
+
+;; ## Clock
+(defn sim-time-up?
+  "Has the time allotment for this sim expired?"
+  [sim]
+  (if-let [clock (get sim :sim/clock)]
+    (if-let [elapsed (clock-elapsed-time clock)]
+      (< (-> sim :test/_sims only :test/duration) elapsed)
+      false)
+    false))
 
 ;; ## Processes
 (def ^:private default-executor
@@ -267,10 +278,10 @@ process."
 
 (defmethod clock-elapsed-time :clock.type/fixed
   [clock]
-  (let [start (getx clock :clock/realStart)
-        mult (getx clock :clock/multiplier)
-        real-elapsed (- (System/currentTimeMillis) start)]
-    (long (* real-elapsed mult))))
+  (when-let [start (get clock :clock/realStart)]
+    (let [mult (getx clock :clock/multiplier)
+          real-elapsed (- (System/currentTimeMillis) start)]
+      (long (* real-elapsed mult)))))
 
 (defn sleep-until
   [clock twhen]
