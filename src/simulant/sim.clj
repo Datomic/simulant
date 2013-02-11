@@ -70,6 +70,10 @@ key specified by :service/key."
   "Teardown service at the end of a sim run."
   (fn [conn process service services-map] (getx service :service/type)))
 
+;; do-nothing default
+(defmethod finalize-service :default
+  [conn process service services-map])
+
 (defn- start-services
   [conn process]
   (reduce
@@ -131,7 +135,7 @@ process."
     (.close ^Closeable writer)
     (with-open [reader (io/reader temp-file)
                 pbr (PushbackReader. reader)]
-      (transact-batch conn (form-seq pbr)))))
+      (transact-pbatch conn (form-seq pbr) 1000))))
 
 (defn create-action-log
   "Create an action log service for the sim."

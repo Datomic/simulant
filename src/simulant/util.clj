@@ -108,6 +108,16 @@
        @(d/transact-async conn (mapcat identity batch))
        :ok)))
 
+(defn transact-pbatch
+  "Submit txes in batches of size batch-size, default is 100"
+  ([conn txes] (transact-pbatch conn txes 100))
+  ([conn txes batch-size]
+     (->> (partition-all batch-size txes)
+          (pmap #(d/transact-async conn (mapcat identity %)))
+          (map deref)
+          dorun)
+     :ok))
+
 (defn tx-ent
   "Resolve entity id to entity as of the :db-after value of a tx result"
   [txresult eid]
