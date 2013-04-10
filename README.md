@@ -13,7 +13,7 @@ Simulant requires leiningen 2.
 
 Work through examples/repl/hello_world.clj at a REPL.
 
-## Running Tests 
+## Running Tests
 
 From a repl:
 
