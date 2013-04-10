@@ -111,6 +111,7 @@
         <configuration>
           <sourceDirectories>
             <sourceDirectory>src</sourceDirectory>
+            <sourceDirectory>examples</sourceDirectory>
           </sourceDirectories>
           <testSourceDirectories>
             <testSourceDirectory>test</testSourceDirectory>
