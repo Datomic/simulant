@@ -115,7 +115,7 @@
           <testSourceDirectories>
             <testSourceDirectory>test</testSourceDirectory>
           </testSourceDirectories>
-          <testScript>script/run_generative_tests.clj</testScript>
+          <testScript>script/ci.clj</testScript>
           <copiedNamespaces>
             <namespace>!.*</namespace>
           </copiedNamespaces>
