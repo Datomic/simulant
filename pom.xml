@@ -235,6 +235,14 @@
               <serverId>sonatype-nexus-staging</serverId>
             </configuration>
           </plugin>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-gpg-plugin</artifactId>
+            <version>1.4</version>
+            <configuration>
+              <keyname>Datomic</keyname>
+            </configuration>
+          </plugin>
         </plugins>
       </build>
     </profile>
