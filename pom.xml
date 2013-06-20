@@ -232,7 +232,7 @@
               <!-- The Base URL of Nexus instance where we want to stage -->
               <nexusUrl>https://oss.sonatype.org/</nexusUrl>
               <!-- The server "id" element from settings to use authentication from -->
-              <serverId>sonatype-nexus-staging</serverId>
+              <serverId>sonatype-nexus-staging-datomic</serverId>
             </configuration>
           </plugin>
           <plugin>
