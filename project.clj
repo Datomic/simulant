@@ -10,5 +10,5 @@
   :min-lein-version "2.0.0"
   :dependencies [[org.clojure/clojure "1.5.1"]
                  [org.clojure/test.generative "0.3.0"]
-                 [com.datomic/datomic-free "0.8.3862"
+                 [com.datomic/datomic-free "0.8.4020"
                   :exclusions [org.clojure/clojure]]])
