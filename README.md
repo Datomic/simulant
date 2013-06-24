@@ -3,15 +3,17 @@
 Simulant is a library and schema for developing simulation-based
 tests.
 
+## Getting Started
+
+Simulant requires leiningen 2.  Put this in your project.clj:
+
+    [com.datomic/simulant "0.1.6"]
+
+Work through examples/repl/hello_world.clj at a REPL.
+
 ## Docs
 
 See the [wiki](https://github.com/Datomic/simulant/wiki).
-
-## Getting Started
-
-Simulant requires leiningen 2.
-
-Work through examples/repl/hello_world.clj at a REPL.
 
 ## Running Tests
 
