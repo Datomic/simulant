@@ -25,7 +25,7 @@
   (let [m (-> resource io/resource slurp read-string)]
     (doseq [v (vals m)]
       (doseq [tx v]
-        (d/transact conn tx)))))
+        @(d/transact conn tx)))))
 
 (defn convenient
   []
