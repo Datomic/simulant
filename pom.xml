@@ -83,7 +83,7 @@
     <dependency>
       <groupId>com.datomic</groupId>
       <artifactId>datomic-free</artifactId>
-      <version>0.8.4020</version>
+      <version>0.8.4020.24</version>
       <exclusions>
         <exclusion>
           <groupId>org.clojure</groupId>
