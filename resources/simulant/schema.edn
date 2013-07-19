@@ -23,6 +23,7 @@
  :clock
  [[{:db/id #db/id[:db.part/db]
     :db/ident :clock/type
+    :db/index true
     :db/valueType :db.type/ref
     :db/cardinality :db.cardinality/one
     :db.install/_attribute :db.part/db}
@@ -56,6 +57,7 @@
  [[{:db/id #db/id[:db.part/db]
     :db/ident :model/type
     :db/valueType :db.type/ref
+    :db/index true
     :db/cardinality :db.cardinality/one
     :db.install/_attribute :db.part/db}
    {:db/id #db/id[:db.part/db]
@@ -68,12 +70,14 @@
  :test
  [[{:db/id #db/id[:db.part/db]
     :db/ident :test/type
+    :db/index true
     :db/valueType :db.type/ref
     :db/cardinality :db.cardinality/one
     :db.install/_attribute :db.part/db}
    {:db/id #db/id[:db.part/db]
     :db/ident :test/duration
     :db/valueType :db.type/long
+    :db/index true
     :db/doc "Duration covered by test (in msec)"
     :db/cardinality :db.cardinality/one
     :db.install/_attribute :db.part/db}
@@ -94,6 +98,7 @@
  [[{:db/id #db/id[:db.part/db]
     :db/ident :agent/type
     :db/valueType :db.type/ref
+    :db/index true
     :db/doc "Type of agent"
     :db/cardinality :db.cardinality/one
     :db.install/_attribute :db.part/db}
@@ -165,17 +170,20 @@
     :db.install/_attribute :db.part/db}   
    {:db/id #db/id[:db.part/db]
     :db/ident :process/type
+    :db/index true
     :db/valueType :db.type/ref
     :db/cardinality :db.cardinality/one
     :db.install/_attribute :db.part/db}
    {:db/id #db/id[:db.part/db]
     :db/ident :process/state
     :db/valueType :db.type/ref
+    :db/index true
     :db/cardinality :db.cardinality/one
     :db.install/_attribute :db.part/db}   
    {:db/id #db/id[:db.part/db]
     :db/ident :process/ordinal
     :db/valueType :db.type/long
+    :db/index true
     :db/doc "Ordinal number of process within sim, determines which actions this process is responsible for."
     :db/cardinality :db.cardinality/one
     :db.install/_attribute :db.part/db}
@@ -217,6 +225,7 @@ end of the run."
     :db.install/_attribute :db.part/db}   
    {:db/id #db/id[:db.part/db]
     :db/ident :sim/type
+    :db/index true
     :db/valueType :db.type/ref
     :db/cardinality :db.cardinality/one
     :db.install/_attribute :db.part/db}
@@ -224,11 +233,13 @@ end of the run."
     :db/ident :sim/systemURI
     :db/valueType :db.type/string
     :db/doc "System under test"
+    :db/index true
     :db/cardinality :db.cardinality/one
     :db.install/_attribute :db.part/db}   
    {:db/id #db/id[:db.part/db]
     :db/ident :sim/processCount
     :db/valueType :db.type/long
+    :db/index true
     :db/doc "Total number of processes desired for this sim."
     :db/cardinality :db.cardinality/one
     :db.install/_attribute :db.part/db}
@@ -272,6 +283,7 @@ end of the run."
     :db/ident :repo.type/git}
    {:db/id #db/id[:db.part/db]
     :db/ident :repo/type
+    :db/index true
     :db/valueType :db.type/ref
     :db/cardinality :db.cardinality/one
     :db/doc "Type of repository"
@@ -280,10 +292,12 @@ end of the run."
     :db/ident :git/uri
     :db/valueType :db.type/string
     :db/doc "Git repository URI"
+    :db/index true
     :db/cardinality :db.cardinality/one
     :db.install/_attribute :db.part/db}
    {:db/id #db/id [:db.part/db]
     :db/ident :git/sha
+    :db/index true
     :db/valueType :db.type/string
     :db/doc "SHA ref for current git HEAD"
     :db/cardinality :db.cardinality/one
