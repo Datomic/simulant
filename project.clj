@@ -1,4 +1,4 @@
-(defproject com.datomic/simulant "0.1.4"
+(defproject com.datomic/simulant "0.1.7-SNAPSHOT"
   :description "Simulation testing with Datomic"
   :url "https://github.com/Datomic/simulant"
   :license {:name "Eclipse Public License - v 1.0"
@@ -10,5 +10,5 @@
   :min-lein-version "2.0.0"
   :dependencies [[org.clojure/clojure "1.5.1"]
                  [org.clojure/test.generative "0.3.0"]
-                 [com.datomic/datomic-free "0.8.3862"
+                 [com.datomic/datomic-free "0.8.4020.24"
                   :exclusions [org.clojure/clojure]]])
