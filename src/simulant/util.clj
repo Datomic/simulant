@@ -8,6 +8,7 @@
 
 (ns simulant.util
   (:require
+   [clojure.edn :as edn]
    [clojure.java.io :as io]
    [clojure.set :as set]
    [datomic.api :as d]))
@@ -162,9 +163,7 @@
 (defn safe-read-string
   "Read a string without evaluating its contents"
   [str]
-  (binding [*read-eval* false]
-    (when (pos? (count str))
-      (read-string str))))
+  (edn/read-string str))
 
 (defn form-seq
   "Lazy seq of forms read from a reader"
