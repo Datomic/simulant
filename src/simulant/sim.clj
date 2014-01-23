@@ -91,7 +91,6 @@ need to use.")
   "Call teardown for each service associate with
 process."
   [services-map process]
-  (println (str "When finalizing services for process " (:db/id process) " service map is " services-map))
   (doseq [svc-instance (vals services-map)]
     (finalize-service svc-instance process)))
 
@@ -99,7 +98,6 @@ process."
   "Run f inside the service lifecycle for process."
   [conn process f]
   (let [services-map (start-services conn process)]
-    (println (str "After starting services for process " (:db/id process) " service map is " services-map))
     (binding [*services* services-map]
       (try
        (f)
@@ -155,6 +153,35 @@ process."
                             :service/key :simulant.sim/actionLog}])
         (tx-ent id))))
 
+;; ## Process state service
+
+(defprotocol ConnectionVendor
+  (connect [this]))
+
+(defrecord ProcessStateService [uri]
+  Service 
+  (start-service [this process]
+    (d/create-database uri))
+
+  (finalize-service [this process])
+
+  ConnectionVendor
+  (connect [this] (d/connect uri)))
+
+(defn construct-process-state
+  [conn svc-definition]
+  (->ProcessStateService (str "datomic:mem://localhost:4334/" (gensym))))
+
+(defn create-process-state
+  "Mark the fact that a sim will use a process state service."
+  [conn sim]
+  (let [id (d/tempid :sim)]
+    (-> @(d/transact conn [{:db/id id
+                            :sim/_services (e sim)
+                            :service/type :service.type/processState
+                            :service/constructor (str 'simulant.sim/construct-process-state)
+                            :service/key :simulant.sim/processState}])
+        (tx-ent id))))
 
 ;; ## Helper Functions
 

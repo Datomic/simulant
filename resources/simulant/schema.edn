@@ -135,7 +135,9 @@
     :db/cardinality :db.cardinality/one
     :db.install/_attribute :db.part/db}
    {:db/id #db/id [:db.part/db]
-    :db/ident :simulant.sim/actionLog}]]
+    :db/ident :simulant.sim/actionLog}
+   {:db/id #db/id[:db.part/db]
+    :db/ident :simulant.sim/processState}]]
  
  :action
  [[{:db/id #db/id[:db.part/db]
@@ -213,7 +215,8 @@
     :db/valueType :db.type/string
     :db/cardinality :db.cardinality/one
     :db/doc "The fully qualified name of a Clojure function that
-builds the service. The function will be called with a DB connection."
+builds the service. The function will be called with a DB connection and 
+this service entity."
     :db.install/_attribute :db.part/db}
    {:db/id #db/id[:db.part/db]
     :db/doc "Service that accumulates events during a sim run,
