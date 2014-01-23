@@ -207,12 +207,22 @@
     :db/valueType :db.type/ref
     :db/index true
     :db/cardinality :db.cardinality/one
-    :db.install/_attribute :db.part/db}   
+    :db.install/_attribute :db.part/db}
+   {:db/id #db/id[:db.part/db]
+    :db/ident :service/constructor
+    :db/valueType :db.type/string
+    :db/cardinality :db.cardinality/one
+    :db/doc "The fully qualified name of a Clojure function that
+builds the service. The function will be called with a DB connection."
+    :db.install/_attribute :db.part/db}
    {:db/id #db/id[:db.part/db]
     :db/doc "Service that accumulates events during a sim run,
 and then transacts them into the sim database at the
 end of the run."
-    :db/ident :service.type/actionLog}]]
+    :db/ident :service.type/actionLog}
+   {:db/id #db/id[:db.part/db]
+    :db/doc "Service that allows a process to track its state in a database"
+    :db/ident :service.type/processState}]]
  
  :sim
  [[{:db/id #db/id[:db.part/db]
