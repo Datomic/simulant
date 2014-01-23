@@ -169,7 +169,7 @@ process."
   (connect [this] (d/connect uri)))
 
 (defn construct-process-state
-  [conn svc-definition]
+  [_ _]
   (->ProcessStateService (str "datomic:mem://localhost:4334/" (gensym))))
 
 (defn create-process-state
