@@ -1,0 +1,70 @@
+* Problem
+** We want to capture state during a process. One action may receive data that has to be preserved and sent back later.
+** simulant.sim/perform-action is a multimethod that receives two arguments: action and process.
+** both action and process are Datomic entities.
+** Simulant keeps a pool of agents and dispatches actions on processes to those agents.
+** Processes are multiplexed across agents.
+** All multimethod implementations must have the same arity.
+* Common to all options
+** Agent-state should be a map of process -> process-state.
+** Always merge the updated process-state into the agent-state.
+** This allows the process -> agent multiplexing to continue.
+** Want to avoid breaking API changes
+* Options
+** Magic key in existing argument
+*** Modify simulant.sim/feed-action to merge an extra key into either `action` or `process`.
+*** Use perform-action's return value as the new state
+*** Pros & cons
++ Minimally intrusive
++ Transparent to existing users
+- Ugly
+- Asymmetric
+- Requires a 'magic' key in a map to smuggle in an argument
+** Dynamically bind a function
+*** Bind a symbol in feed-action to act like a function.
+*** perform-action can get the current state by calling that function
+*** Use perform-action's return value as the new state
+*** Pros & cons
++ Transparent to existing users
++ Not very intrusive
+- A bit of magic
+- Asymmetric
+** Introduce a new process type
+*** Augment sim.type/basic with sim.type/stateful
+*** Dispatch to different feeders for stateful sim types.
+*** Define a method other than perform-action
+*** Pros & cons
++ Extends the framework in ways it was meant to be extended
+- Larger change
+- May have a ripple effect that we cannot hide from existing users
+** Introduce an orthogonal concept about processes: Causaulity
+*** Add an attribute to the simulant schema :process/causality
+*** Allowed values are :process.causality/independent (default) and :process.causality/dependent.
+*** Inside simulant.sim/feed-action, we check for this attribute
+*** If the process is causally dependent, then we call a new multimethod `simulant.sim/perform-dependent-action` that takes the state as a third argument
+*** Pros & cons
++ Small intrusion in simulant
++ Non-breaking change
+- Must apply to all actions in a process, cannot be piecemeal
+- Minor nit: proliferating multimethods
+** Introduce an orthogonal concept about actions: statefulness
+*** Add an attribute to the simulant schema :action/statefulness
+*** Allowed values are :action.statefulness/stateful and :action.statefulness/stateless (default)
+*** Inside simulant.sim/feed-action, we check for this attribute
+*** If the action is stateful, we call `simulant.sim/perform-action` with _3_ arguments: action, process, and state.
+*** We have to change the defmulti for perform-action so it is variadic. This is a non-breaking change for simulant users
+*** Whatever the user function returns becomes the new state of the process
+*** Pros & cons
++ Small intrusion in simulant
++ Non-breaking change
++ Can mix stateful and stateless actions in a single process
+** Introduce a new namespace
+*** Make a `simulant.sim-stateful` namespace
+*** Has similar multimethods, but `perform-action` takes an additional argument for the state.
+*** Use perform-action's return value as the new state.
+*** Factor out common functions from `simulant.sim` and `simulant.sim-stateful`.
+*** Pros & cons
++ Cleanest interface to perform-action. State passes right through.
++ Non-breaking for existing users
+- Largest change
+- Future maintenance burden to keep both flavors synchronized
