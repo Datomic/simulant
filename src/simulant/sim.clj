@@ -60,34 +60,39 @@ need to use.")
           [(-> process :sim/services)
            (-> process :sim/_processes only :sim/services)]))
 
-(defmulti start-service
-  "Start service, returning an object that will
-be stored in the *services* map, under the
-key specified by :service/key."
-  (fn [conn process service] (getx service :service/type)))
+(defprotocol Service
+  "A service that is available during a simulation run.
+   It has a lifecycle bounded by start-service and finalize-service.
+   When a sim is run across multiple hosts, each Service will
+   be instantiated on every host."
+  (start-service [this process]
+    "Start service, returning an object that will
+     be stored in the *services* map, under the
+     key specified by :service/key.")
+  (finalize-service [this process]
+    "Teardown service at the end of a sim run."))
 
-(defmulti finalize-service
-  "Teardown service at the end of a sim run."
-  (fn [conn process service services-map] (getx service :service/type)))
-
-;; do-nothing default
-(defmethod finalize-service :default
-  [conn process service services-map])
+(defn- create-service
+  [conn svc-definition]
+  (let [ctor (resolve (symbol (:service/constructor svc-definition)))]
+    (assert ctor)
+    (ctor conn svc-definition)))
 
 (defn- start-services
   [conn process]
   (reduce
-   (fn [m svc]
-     (assoc m (getx svc :service/key) (start-service conn process svc)))
+   (fn [m svc-definition]
+     (assoc m (getx svc-definition :service/key) (doto (create-service conn svc-definition)
+                                                   (start-service process))))
    {}
    (services process)))
 
 (defn- finalize-services
   "Call teardown for each service associate with
 process."
-  [conn process services-map]
-  (doseq [service (services process)]
-    (finalize-service conn process service services-map)))
+  [services-map process]
+  (doseq [svc-instance (vals services-map)]
+    (finalize-service svc-instance process)))
 
 (defn with-services
   "Run f inside the service lifecycle for process."
@@ -98,7 +103,7 @@ process."
        (f)
        (finally
         (let [process-after (d/entity (d/db conn) (e process))]
-          (finalize-services conn process-after services-map)))))))
+          (finalize-services services-map process-after)))))))
 
 ;; ## Action Log
 ;;
@@ -109,8 +114,18 @@ process."
 ;; ActionLogs implement IFn, and expect to be passed transaction data
 (def ^:private serializer (agent nil))
 
-(defrecord ActionLog
-  [^File temp-file writer]
+(defrecord ActionLogService [conn ^File temp-file writer]
+  Service
+  (start-service [this process])
+
+  (finalize-service [this process]
+    (send-off serializer identity)
+    (await serializer)
+    (.close ^Closeable writer)
+    (with-open [reader (io/reader temp-file)
+                pbr (PushbackReader. reader)]
+      (transact-pbatch conn (form-seq pbr) 1000)))
+
   clojure.lang.IFn
   (invoke
    [_ tx-data]
@@ -121,21 +136,11 @@ process."
         (pr tx-data))
       nil))))
 
-(defmethod start-service :service.type/actionLog
-  [conn process service]
-  (let [f (File/createTempFile "actionLog" "edn")
-        writer (io/writer f)]
-    (ActionLog. f writer)))
-
-(defmethod finalize-service :service.type/actionLog
-  [conn process service services-map]
-  (send-off serializer identity)
-  (await serializer)
-  (let [{:keys [temp-file writer]} (getx services-map (:service/key service))]
-    (.close ^Closeable writer)
-    (with-open [reader (io/reader temp-file)
-                pbr (PushbackReader. reader)]
-      (transact-pbatch conn (form-seq pbr) 1000))))
+(defn construct-action-log 
+  [conn svc-definition]
+    (let [f (File/createTempFile "actionLog" "edn")
+          writer (io/writer f)]
+      (->ActionLogService conn f writer)))
 
 (defn create-action-log
   "Create an action log service for the sim."
@@ -144,7 +149,38 @@ process."
     (-> @(d/transact conn [{:db/id id
                             :sim/_services (e sim)
                             :service/type :service.type/actionLog
+                            :service/constructor (str 'simulant.sim/construct-action-log)
                             :service/key :simulant.sim/actionLog}])
+        (tx-ent id))))
+
+;; ## Process state service
+
+(defprotocol ConnectionVendor
+  (connect [this]))
+
+(defrecord ProcessStateService [uri]
+  Service 
+  (start-service [this process]
+    (d/create-database uri))
+
+  (finalize-service [this process])
+
+  ConnectionVendor
+  (connect [this] (d/connect uri)))
+
+(defn construct-process-state
+  [_ _]
+  (->ProcessStateService (str "datomic:mem://localhost:4334/" (gensym))))
+
+(defn create-process-state
+  "Mark the fact that a sim will use a process state service."
+  [conn sim]
+  (let [id (d/tempid :sim)]
+    (-> @(d/transact conn [{:db/id id
+                            :sim/_services (e sim)
+                            :service/type :service.type/processState
+                            :service/constructor (str 'simulant.sim/construct-process-state)
+                            :service/key :simulant.sim/processState}])
         (tx-ent id))))
 
 ;; ## Helper Functions
