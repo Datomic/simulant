@@ -41,7 +41,7 @@
     :db/doc "Multiply real time by a fixed multiplier"
     :db/cardinality :db.cardinality/one
     :db.install/_attribute :db.part/db}
-   {:db/id #db/id [:db.part/db]
+   {:db/id #db/id [:db.part/user]
     :db/ident :deliver
     :db/doc "Set an attribute's value iff not already set. Idempotent."
     :db/fn #db/fn
@@ -218,12 +218,12 @@
 builds the service. The function will be called with a DB connection and 
 this service entity."
     :db.install/_attribute :db.part/db}
-   {:db/id #db/id[:db.part/db]
+   {:db/id #db/id[:db.part/user]
     :db/doc "Service that accumulates events during a sim run,
 and then transacts them into the sim database at the
 end of the run."
     :db/ident :service.type/actionLog}
-   {:db/id #db/id[:db.part/db]
+   {:db/id #db/id[:db.part/user]
     :db/doc "Service that allows a process to track its state in a database"
     :db/ident :service.type/processState}]]
  
