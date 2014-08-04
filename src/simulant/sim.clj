@@ -82,8 +82,8 @@ need to use.")
   [conn process]
   (reduce
    (fn [m svc-definition]
-     (assoc m (getx svc-definition :service/key) (doto (create-service conn svc-definition)
-                                                   (start-service process))))
+     (assoc m (getx svc-definition :service/key)
+            (start-service (create-service conn svc-definition) process)))
    {}
    (services process)))
 
@@ -116,7 +116,7 @@ process."
 
 (defrecord ActionLogService [conn ^File temp-file writer]
   Service
-  (start-service [this process])
+  (start-service [this process] this)
 
   (finalize-service [this process]
     (send-off serializer identity)
@@ -136,7 +136,7 @@ process."
         (pr tx-data))
       nil))))
 
-(defn construct-action-log 
+(defn construct-action-log
   [conn svc-definition]
     (let [f (File/createTempFile "actionLog" "edn")
           writer (io/writer f)]
@@ -159,9 +159,10 @@ process."
   (connect [this]))
 
 (defrecord ProcessStateService [uri]
-  Service 
+  Service
   (start-service [this process]
-    (d/create-database uri))
+    (d/create-database uri)
+    this)
 
   (finalize-service [this process])
 
@@ -281,7 +282,7 @@ process."
 
 ;; The default implementation of process-agent-ids assumes that all
 ;; processes in the sim should have agents allocated round-robin
-;; across them.  
+;; across them.
 (defmethod process-agent-ids :default
   [process]
   (let [sim (-> process :sim/_processes only)
@@ -440,6 +441,3 @@ process."
   (if-let [process (run-sim-process sim-uri (safe-read-string sim-id))]
     (println "Joined sim " sim-id " as process " (:db/id process))
     (println "Unable to join sim " sim-id)))
-
-
-
