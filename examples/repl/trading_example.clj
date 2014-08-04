@@ -6,6 +6,8 @@
 ;;   the terms of this license.
 ;;   You must not remove this notice, or any other, from this software.
 
+(ns trading-example)
+
 (use 'simulant.examples.repl)
 (convenient)
 
@@ -13,11 +15,12 @@
  '[simulant.examples.trading :as trading]
  '[simulant.examples.trading-sim :as tsim])
 
-(def sim-uri "datomic:free://localhost:4334/sim")
+(def sim-uri "datomic:free://localhost:4334/trading-example")
+(d/delete-database sim-uri)
 (d/create-database sim-uri)
 (def sim-conn (d/connect sim-uri))
 
-(comment 
+(comment
   ;; generic simulation schema
   (load-schema sim-conn "simulant/schema.edn")
 
@@ -180,10 +183,10 @@
      [?log :actionLog/nsec ?nsec]]
     [[procsCompleted ?e]
      [?e :sim/processes]
-     [(user/procs-completed? $ ?e)]]
+     [(trading-example/procs-completed? $ ?e)]]
     [[simCompletedAt ?sim ?inst]
      (procsCompleted ?sim)
-     [(user/latest-proc-completion $ ?sim) ?inst]]])
+     [(trading-example/latest-proc-completion $ ?sim) ?inst]]])
 
 ;; count of trade times should match count of trades
 (d/q '[:find (count ?nsec)
@@ -198,7 +201,7 @@
   (/ (reduce + 0 nses) (double (count nses)) 1000 1000))
 
 ;; mean trade time for this sim, in msec
-(d/q '[:find (user/ns->ms-avg ?nsec)
+(d/q '[:find (trading-example/ns->ms-avg ?nsec)
        :with ?action
        :in $ % ?sim ?action-type
        :where (actionTime ?sim ?action-type ?action ?nsec)]
@@ -211,13 +214,9 @@
      simdb rules)
 
 ;; history of trade times across sim runs
-(d/q '[:find ?e (user/ns->ms-avg ?nsec) ?inst
+(d/q '[:find ?e (trading-example/ns->ms-avg ?nsec) ?inst
        :with ?action
        :in $ % ?action-type
        :where (simCompletedAt ?e ?inst)
               (actionTime ?sim ?action-type ?action ?nsec)]
      simdb rules :action.type/trade)
-
-
-
-

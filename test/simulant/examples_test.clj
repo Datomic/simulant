@@ -22,11 +22,16 @@
       (println ";; Executing forms in temp namespace: " temp)
       (in-ns temp)
       (clojure.core/use 'clojure.core 'clojure.repl 'clojure.pprint)
-      (doseq [f forms]
-        (pprint/pprint f)
-        (print "=> ")
-        (pprint/pprint (eval f))
-        (println))
+      (loop [forms forms]
+        (when-let [f (first forms)]
+          (if (and (seq? f) (= 'comment (first f)))
+            (recur (concat (rest f) (rest forms)))
+            (do
+              (pprint/pprint f)
+              (print "=> ")
+              (pprint/pprint (eval f))
+              (println)
+              (recur (rest forms))))))
       (remove-ns temp)
       :done)))
 
