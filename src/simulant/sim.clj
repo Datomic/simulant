@@ -170,7 +170,7 @@ process."
 
 (defn construct-process-state
   [_ _]
-  (->ProcessStateService (str "datomic:mem://localhost:4334/" (gensym))))
+  (->ProcessStateService (str "datomic:mem://" (gensym))))
 
 (defn create-process-state
   "Mark the fact that a sim will use a process state service."
