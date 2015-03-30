@@ -6,6 +6,7 @@
                      :distribution :repo
                      :comments "same as Clojure"}
   :source-paths     ["src" "examples"]
+  :resource-paths   ["resources"]
   :plugins          [[lein-marginalia "0.7.1"]]
   :min-lein-version "2.0.0"
   :jvm-opts         ["-Xmx2g" "-Xms2g" "-server" "-Ddatomic.objectCacheMax=128m"
