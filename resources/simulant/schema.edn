@@ -134,6 +134,12 @@
     :db/doc "How long this action took, in nsec"
     :db/cardinality :db.cardinality/one
     :db.install/_attribute :db.part/db}
+   {:db/id #db/id[:db.part/db]
+    :db/ident :actionLog.service/batch-size
+    :db/valueType :db.type/long
+    :db/doc "The batch size to use when transacting action log entries"
+    :db/cardinality :db.cardinality/one
+    :db.install/_attribute :db.part/db}
    {:db/id #db/id [:db.part/db]
     :db/ident :simulant.sim/actionLog}
    {:db/id #db/id[:db.part/db]
