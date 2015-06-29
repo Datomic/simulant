@@ -132,7 +132,8 @@ process."
    (send-off
     serializer
     (fn [_]
-      (binding [*out* writer]
+      (binding [*out* writer
+                *print-length* nil]
         (pr tx-data))
       nil))))
 
