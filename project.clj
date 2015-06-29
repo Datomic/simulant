@@ -1,4 +1,4 @@
-(defproject com.datomic/simulant "0.1.7-SNAPSHOT"
+(defproject com.datomic/simulant "0.1.8-ALPHA1"
   :description      "Simulation testing with Datomic"
   :url              "https://github.com/Datomic/simulant"
   :license          {:name "Eclipse Public License - v 1.0"
