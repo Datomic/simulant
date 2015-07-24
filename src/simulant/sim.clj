@@ -114,7 +114,7 @@ process."
 ;; ActionLogs implement IFn, and expect to be passed transaction data
 (def ^:private serializer (agent nil))
 
-(defrecord ActionLogService [conn ^File temp-file writer]
+(defrecord ActionLogService [conn ^File temp-file writer batch-size]
   Service
   (start-service [this process] this)
 
@@ -124,7 +124,7 @@ process."
     (.close ^Closeable writer)
     (with-open [reader (io/reader temp-file)
                 pbr (PushbackReader. reader)]
-      (transact-pbatch conn (form-seq pbr) 1000)))
+      (transact-pbatch conn (form-seq pbr) (or batch-size 1000))))
 
   clojure.lang.IFn
   (invoke
@@ -140,18 +140,22 @@ process."
   [conn svc-definition]
     (let [f (File/createTempFile "actionLog" "edn")
           writer (io/writer f)]
-      (->ActionLogService conn f writer)))
+      (->ActionLogService conn f writer (:actionLog.service/batch-size svc-definition))))
 
 (defn create-action-log
-  "Create an action log service for the sim."
-  [conn sim]
-  (let [id (d/tempid :sim)]
-    (-> @(d/transact conn [{:db/id id
-                            :sim/_services (e sim)
-                            :service/type :service.type/actionLog
-                            :service/constructor (str 'simulant.sim/construct-action-log)
-                            :service/key :simulant.sim/actionLog}])
-        (tx-ent id))))
+  "Create an action log service for the sim. `attrs` is an optional
+  map of attributes to include in the service definition."
+  ([conn sim] (create-action-log conn sim {}))
+  ([conn sim attrs]
+   (let [id (d/tempid :sim)]
+     (-> @(d/transact conn [(merge
+                             {:db/id id
+                              :sim/_services (e sim)
+                              :service/type :service.type/actionLog
+                              :service/constructor (str 'simulant.sim/construct-action-log)
+                              :service/key :simulant.sim/actionLog}
+                             attrs)])
+       (tx-ent id)))))
 
 ;; ## Process state service
 
