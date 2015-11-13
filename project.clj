@@ -11,7 +11,8 @@
   :min-lein-version "2.0.0"
   :jvm-opts         ["-Xmx2g" "-Xms2g" "-server" "-Ddatomic.objectCacheMax=128m"
                      "-Ddatomic.memoryIndexMax=256m" "-Ddatomic.memoryIndexThreshold=32m"]
-  :dependencies     [[org.clojure/clojure "1.5.1"]
-                     [org.clojure/test.generative "0.5.0"]
-                     [com.datomic/datomic-free "0.9.4815.12"
-                      :exclusions [org.clojure/clojure]]])
+  :dependencies     [[org.clojure/clojure "1.7.0"]
+                     [org.clojure/test.generative "0.5.2"]
+                     [joda-time "2.2"]
+                     [com.datomic/datomic-free "0.9.5327"
+                      :exclusions [org.clojure/clojure joda-time]]])
