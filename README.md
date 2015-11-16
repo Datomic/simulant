@@ -5,9 +5,9 @@ tests.
 
 ## Getting Started
 
-Simulant requires leiningen 2.  Put this in your project.clj:
+Leiningen dependency:
 
-    [com.datomic/simulant "0.1.6"]
+    [com.datomic/simulant "0.1.8"]
 
 Work through examples/repl/hello_world.clj at a REPL.
 
