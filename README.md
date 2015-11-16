@@ -24,7 +24,7 @@ From a repl:
 
 ## License
 
-    Copyright (c) Metadata Partners, LLC. All rights reserved. The use
+    Copyright (c) Cognitect, Inc. All rights reserved. The use
     and distribution terms for this software are covered by the
     Eclipse Public License 1.0
     (http://opensource.org/licenses/eclipse-1.0.php) which can be
