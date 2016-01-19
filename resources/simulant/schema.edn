@@ -143,7 +143,25 @@
    {:db/id #db/id [:db.part/db]
     :db/ident :simulant.sim/actionLog}
    {:db/id #db/id[:db.part/db]
-    :db/ident :simulant.sim/processState}]]
+    :db/ident :simulant.sim/processState}
+   {:db/id #db/id [:db.part/db]
+    :db/ident :step/type
+    :db/valueType :db.type/ref
+    :db/doc "Identifier for the kind of step within an action."
+    :db/cardinality :db.cardinality/one
+    :db.install/_attribute :db.part/db}
+   {:db/id #db/id [:db.part/db]
+    :db/ident :actionLog/sequence-number
+    :db/valueType :db.type/long
+    :db/doc "Monotonically increasing number that provides a partial sort order for action log entries."
+    :db/cardinality :db.cardinality/one
+    :db.install/_attribute :db.part/db}
+   {:db/id #db/id [:db.part/db]
+    :db/ident :actionLog/steps
+    :db/valueType :db.type/ref
+    :db/doc "Which step of the action was this entry for?"
+    :db/cardinality :db.cardinality/one
+    :db.install/_attribute :db.part/db}]]
  
  :action
  [[{:db/id #db/id[:db.part/db]
