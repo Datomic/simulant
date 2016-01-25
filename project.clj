@@ -15,4 +15,8 @@
                      [org.clojure/test.generative "0.5.2"]
                      [joda-time "2.2"]
                      [com.datomic/datomic-free "0.9.5327"
-                      :exclusions [org.clojure/clojure joda-time]]])
+                      :exclusions [org.clojure/clojure
+                                   joda-time
+                                   org.apache.httpcomponents/httpclient]]
+                     [org.clojure/data.json "0.2.6"]
+                     [org.apache.httpcomponents/httpclient "4.5.1"]])
