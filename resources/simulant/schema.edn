@@ -150,6 +150,13 @@
     :db/doc "Identifier for the kind of step within an action."
     :db/cardinality :db.cardinality/one
     :db.install/_attribute :db.part/db}
+   {:db/id #db/id[:db.part/db]
+    :db/ident :actionLog/id
+    :db/valueType :db.type/uuid
+    :db/unique :db.unique/identity
+    :db/doc "A unique identifier for the action log item."
+    :db/cardinality :db.cardinality/one
+    :db.install/_attribute :db.part/db}
    {:db/id #db/id [:db.part/db]
     :db/ident :actionLog/sequence-number
     :db/valueType :db.type/long

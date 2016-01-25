@@ -62,6 +62,7 @@
   current step is defined, also include a reference to it."
   [action process]
   (merge {:db/id (d/tempid :db.part/user)
+          :actionLog/id (d/squuid)
           :actionLog/sequence-number (swap! seq-counter inc)
           :actionLog/sim (-> process :sim/_processes only e)
           :actionLog/action (e action)}
