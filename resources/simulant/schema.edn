@@ -34,7 +34,7 @@
     :db/valueType :db.type/long
     :db/doc "Real time at which sim clock started"
     :db/cardinality :db.cardinality/one
-    :db.install/_attribute :db.part/db}   
+    :db.install/_attribute :db.part/db}
    {:db/id #db/id[:db.part/db]
     :db/ident :clock/multiplier
     :db/valueType :db.type/double
@@ -52,7 +52,7 @@
                                     :where [?e ?a]]
                                   db e a)))
              [[:db/add e a v]])}}]]
- 
+
  :model
  [[{:db/id #db/id[:db.part/db]
     :db/ident :model/type
@@ -107,7 +107,7 @@
     :db/valueType :db.type/string
     :db/cardinality :db.cardinality/one
     :db/doc "Human readable description of agent error, if any"
-    :db.install/_attribute :db.part/db}   
+    :db.install/_attribute :db.part/db}
    {:db/id #db/id[:db.part/db]
     :db/ident :agent/actions
     :db/valueType :db.type/ref
@@ -144,6 +144,34 @@
     :db/ident :simulant.sim/actionLog}
    {:db/id #db/id[:db.part/db]
     :db/ident :simulant.sim/processState}
+   {:db/id #db/id[:db.part/db]
+    :db/ident :actionLog/skipped
+    :db/valueType :db.type/boolean
+    :db/index true
+    :db/doc "True if this entity records the fact that an action was skipped due to the agent being interrupted."
+    :db/cardinality :db.cardinality/one
+    :db.install/_attribute :db.part/db}
+   {:db/id #db/id[:db.part/db]
+    :db/ident :actionLog/failure-type
+    :db/valueType :db.type/string
+    :db/index true
+    :db/doc "Classname of the exception that aborted an agent."
+    :db/cardinality :db.cardinality/one
+    :db.install/_attribute :db.part/db}
+   {:db/id #db/id[:db.part/db]
+    :db/ident :actionLog/failure-trace
+    :db/valueType :db.type/string
+    :db/index true
+    :db/doc "Stacktrace of the exception that aborted an agent."
+    :db/cardinality :db.cardinality/one
+    :db.install/_attribute :db.part/db}
+   {:db/id #db/id[:db.part/db]
+    :db/ident :actionLog/failure-message
+    :db/valueType :db.type/string
+    :db/index true
+    :db/doc "Message string of the exception that aborted an agent."
+    :db/cardinality :db.cardinality/one
+    :db.install/_attribute :db.part/db}
    {:db/id #db/id [:db.part/db]
     :db/ident :step/type
     :db/valueType :db.type/ref
@@ -169,7 +197,7 @@
     :db/doc "Which step of the action was this entry for?"
     :db/cardinality :db.cardinality/one
     :db.install/_attribute :db.part/db}]]
- 
+
  :action
  [[{:db/id #db/id[:db.part/db]
     :db/ident :action/atTime
@@ -185,14 +213,14 @@
     :db/index true
     :db/cardinality :db.cardinality/one
     :db.install/_attribute :db.part/db}]]
- 
+
  :process
  [[{:db/id #db/id[:db.part/db]
     :db/ident :process.type/basic}
    {:db/id #db/id[:db.part/db]
-    :db/ident :process.state/running}   
+    :db/ident :process.state/running}
    {:db/id #db/id[:db.part/db]
-    :db/ident :process.state/completed}   
+    :db/ident :process.state/completed}
    {:db/id #db/id[:db.part/db]
     :db/ident :process.state/failed}
    {:db/id #db/id[:db.part/db]
@@ -200,7 +228,7 @@
     :db/valueType :db.type/string
     :db/cardinality :db.cardinality/one
     :db/doc "Human readable description of process error, if any"
-    :db.install/_attribute :db.part/db}   
+    :db.install/_attribute :db.part/db}
    {:db/id #db/id[:db.part/db]
     :db/ident :process/type
     :db/index true
@@ -212,7 +240,7 @@
     :db/valueType :db.type/ref
     :db/index true
     :db/cardinality :db.cardinality/one
-    :db.install/_attribute :db.part/db}   
+    :db.install/_attribute :db.part/db}
    {:db/id #db/id[:db.part/db]
     :db/ident :process/ordinal
     :db/valueType :db.type/long
@@ -246,7 +274,7 @@
     :db/valueType :db.type/string
     :db/cardinality :db.cardinality/one
     :db/doc "The fully qualified name of a Clojure function that
-builds the service. The function will be called with a DB connection and 
+builds the service. The function will be called with a DB connection and
 this service entity."
     :db.install/_attribute :db.part/db}
    {:db/id #db/id[:db.part/user]
@@ -257,7 +285,7 @@ end of the run."
    {:db/id #db/id[:db.part/user]
     :db/doc "Service that allows a process to track its state in a database"
     :db/ident :service.type/processState}]]
- 
+
  :sim
  [[{:db/id #db/id[:db.part/db]
     :db/ident :sim.type/basic}
@@ -266,7 +294,7 @@ end of the run."
     :db/valueType :db.type/ref
     :db/cardinality :db.cardinality/many
     :db/doc "Services used by this sim"
-    :db.install/_attribute :db.part/db}   
+    :db.install/_attribute :db.part/db}
    {:db/id #db/id[:db.part/db]
     :db/ident :sim/type
     :db/index true
@@ -279,7 +307,7 @@ end of the run."
     :db/doc "System under test"
     :db/index true
     :db/cardinality :db.cardinality/one
-    :db.install/_attribute :db.part/db}   
+    :db.install/_attribute :db.part/db}
    {:db/id #db/id[:db.part/db]
     :db/ident :sim/processCount
     :db/valueType :db.type/long
