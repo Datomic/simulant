@@ -43,35 +43,63 @@
   (get @state agent))
 
 (defn perform-action
-  "Execute the function `f`, the body of the action.
+  "Execute the function `f`, a function of the action and the process,
+  unless the agent has been interrupted. Interrupt the agent when an
+  unhandled exception is thrown.
 
-  If `f` throws an exception, record it and interrupt the agent. All
-  subsequent actions invoked through `perform-action` for this agent
-  will not be performed, and an action log entry noting the action as
-  skipped for this agent will be recorded."
-  [action process f]
-  (let [action-log (getx sim/*services* :simulant.sim/actionLog)
-        interrupt  (getx sim/*services* :simulant.interrupt/service)
+  If `f` throws an exception, call `notify-error` with the action,
+  process, and exception and interrupt the agent. All subsequent
+  actions invoked through `perform-action` for an interrupted agent
+  will not be performed, and instead `notify-interrupted` will be
+  called with the action and process."
+  [action process f notify-interrupted notify-error]
+  (let [interrupt  (getx sim/*services* :simulant.interrupt/service)
         agent      (-> action :agent/_actions only e)]
     (if (interrupted? interrupt agent)
-      (action-log [{:db/id (d/tempid :db.part/user)
-                    :actionLog/sim (-> process :sim/_processes only e)
-                    :actionLog/action (e action)
-                    :actionLog/skipped? true}])
+      (notify-interrupted action process)
       (try
         (f action process)
         (catch Throwable t
-          (let [message (or (.getMessage t) "Failure while executing action.")]
-            (action-log [{:db/id (d/tempid :db.part/user)
-                          :actionLog/sim (-> process :sim/_processes only e)
-                          :actionLog/action (e action)
-                          :actionLog/failure-type (-> t class str)
-                          :actionLog/failure-trace (with-out-str (stacktrace/print-cause-trace t))
-                          :actionLog/failure-message message}]))
+          (notify-error action process t)
           (interrupt! interrupt agent))))))
 
-(defmacro defaction
-  "Convenience macro for `perform-action`."
-  [type args & body]
-  `(defmethod sim/perform-action ~type [action# process#]
-     (perform-action action# process# (fn ~args ~@body))))
+(comment
+  ;; Here's a way you could put together the interruption service and
+  ;; the action log under a macro that you could use to implement all
+  ;; your actions.
+  (defn log-skipped
+    [action process]
+    (let [action-log (getx sim/*services* :simulant.sim/actionLog)]
+      (action-log [{:db/id (d/tempid :db.part/user)
+                    :actionLog/sim (-> process :sim/_processes only e)
+                    :actionLog/action (e action)
+                    :actionLog/skipped? true}])))
+
+
+  (defn log-error
+    [action process t]
+    (let [action-log (getx sim/*services* :simulant.sim/actionLog)
+          message (or (.getMessage t) "Failure while executing action.")]
+      (action-log [{:db/id (d/tempid :db.part/user)
+                    :actionLog/sim (-> process :sim/_processes only e)
+                    :actionLog/action (e action)
+                    :actionLog/failure-type (-> t class str)
+                    :actionLog/failure-trace (with-out-str (stacktrace/print-cause-trace t))
+                    :actionLog/failure-message message}])))
+
+  (defmacro defaction
+    "Convenience macro for defining actions"
+    [type args & body]
+    `(defmethod sim/perform-action ~type [action# process#]
+       (perform-aciton action#
+                       process#
+                       (fn ~args ~@body)
+                       log-skipped
+                       log-error)))
+
+  ;; Example usage:
+  (defaction :my.action/foo
+    [action process]
+    (do-foo-stuff action)
+    (do-more-foo-stuff process))
+  )
