@@ -4,14 +4,17 @@
             [simulant.action-log :refer [action-log action-log-entry]]))
 
 
-(letfn [(http-header [n v] {:http.header/name n :http.header/value v})]
-  (defn- headers-log
-    [headers]
-    (mapcat (fn [[name value]]
-              (map #(http-header name %) value))
-            headers)))
+(defn- headers-log
+  [headers]
+  (for [[name values] headers
+        value values]
+    {:http.header/name name :http.header/value value}))
+
 
 (defn send-action-log-entry
+  "Generate an action-log entry, enrich it with HTTP request/response details
+   and send it to the Simulant actionLog service. Return the :actionLog/id of
+   the generated entry."
   [action process {:keys [status body request] :as response} duration-ms]
   (let [entry (merge (action-log-entry action process)
                      {:actionLog/http-request {:http/method (:method request)

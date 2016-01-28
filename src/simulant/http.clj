@@ -84,9 +84,8 @@
                                      (verify [this hostname session]
                                        true)))))))
 
-(defn keyword->content-type
-  [kw]
-  (get {:json "application/json"} kw))
+(def keyword->content-type
+  {:json "application/json"})
 
 (defn set-content-type
   "Set the content-type header appropriately on method."
