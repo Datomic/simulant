@@ -4,7 +4,8 @@
   (:import [javax.net.ssl HostnameVerifier]
            [org.apache.http HttpEntity HttpMessage HttpRequestInterceptor HttpResponse]
            [org.apache.http.client.entity UrlEncodedFormEntity]
-           [org.apache.http.client.methods HttpGet HttpHead HttpPost HttpPut]
+           [org.apache.http.client.methods HttpGet HttpHead HttpPost HttpPut
+            HttpDelete HttpOptions HttpPatch]
            [org.apache.http.client.protocol HttpClientContext]
            [org.apache.http.conn.ssl SSLConnectionSocketFactory]
            [org.apache.http.entity StringEntity]
@@ -46,7 +47,10 @@
   {:get #(HttpGet. %)
    :post #(HttpPost. %)
    :put #(HttpPut. %)
-   :head #(HttpHead. %)})
+   :head #(HttpHead. %)
+   :delete #(HttpDelete. %)
+   :options #(HttpOptions. %)
+   :patch #(HttpPatch. %)})
 
 (defn message->headers
   "Returns a map of the headers in a request or response object.
