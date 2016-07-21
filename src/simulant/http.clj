@@ -4,7 +4,10 @@
   (:import [javax.net.ssl HostnameVerifier]
            [org.apache.http HttpEntity HttpMessage HttpRequestInterceptor HttpResponse]
            [org.apache.http.client.entity UrlEncodedFormEntity]
-           [org.apache.http.client.methods HttpGet HttpHead HttpPost HttpPut]
+           [org.apache.http.client.methods
+            HttpGet HttpHead HttpPost HttpPut
+            HttpEntityEnclosingRequestBase
+            HttpDelete HttpOptions HttpTrace HttpPatch]
            [org.apache.http.client.protocol HttpClientContext]
            [org.apache.http.conn.ssl SSLConnectionSocketFactory]
            [org.apache.http.entity StringEntity]
@@ -42,11 +45,11 @@
                    (.setVersion 1)
                    (.setDomain domain))))
 
-(def method-ctors
-  {:get #(HttpGet. %)
-   :post #(HttpPost. %)
-   :put #(HttpPut. %)
-   :head #(HttpHead. %)})
+(defn create-method
+  [method url]
+  (doto (proxy [HttpEntityEnclosingRequestBase] []
+          (getMethod [] (-> method name .toUpperCase)))
+    (.setURI (java.net.URI/create url))))
 
 (defn message->headers
   "Returns a map of the headers in a request or response object.
@@ -143,7 +146,7 @@
   * :status - The http response status as a number"
   [cs]
   (fn [{:keys [url body headers content-type form-params] :as request}]
-    (let [method  (-> request :method method-ctors (.invoke url))
+    (let [method  (-> request :method (create-method url))
           context (HttpClientContext/create)]
       (set-content-type method content-type)
       (if body
