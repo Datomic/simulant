@@ -35,12 +35,6 @@
     <url>http://www.metadatapartners.com/</url>
   </organization>
 
-  <parent>
-    <groupId>org.sonatype.oss</groupId>
-    <artifactId>oss-parent</artifactId>
-    <version>7</version>
-  </parent>
-
   <properties>
     <!-- Builds will use this release version of Clojure, may be
          overridden in projects or at the command line. -->
@@ -53,6 +47,14 @@
     <clojure.testSource.dir>test/</clojure.testSource.dir>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
   </properties>
+
+  <distributionManagement>
+    <snapshotRepository>
+      <!-- This id is linked to the key setup on the CI server -->
+      <id>sonatype-nexus-staging-datomic</id>
+      <url>https://oss.sonatype.org/content/repositories/snapshots</url>
+    </snapshotRepository>
+  </distributionManagement>
 
   <scm>
     <connection>scm:git:git://github.com/Datomic/simulant.git</connection>
