@@ -216,7 +216,6 @@
     :db/valueType :db.type/keyword
     :db/doc "The method of the HTTP request."
     :db/cardinality :db.cardinality/one
-    :db/isComponent true
     :db.install/_attribute :db.part/db}
    {:db/id #db/id [:db.part/db]
     :db/ident :http/headers
